@@ -4,6 +4,18 @@ export type TaskStatus = 'pending' | 'assigned' | 'in_progress' | 'collaborating
 export type TaskMode = 'broadcast' | 'targeted' | 'auto'
 export type KnowledgeVisibility = 'public' | 'trusted' | 'private'
 
+export interface AuthPayload {
+  sub: string
+  name: string
+  type: 'admin' | 'agent'
+}
+
+export interface AppContext {
+  Variables: {
+    auth?: AuthPayload
+  }
+}
+
 export interface Agent {
   id: string
   name: string
