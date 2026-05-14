@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { api } from '@/lib/api'
+import { gatewaySocket } from '@/lib/ws'
 import clsx from 'clsx'
 
 const STATUS_COLOR: Record<string, string> = {
@@ -27,7 +28,35 @@ export default function TasksPage() {
     api.getAgents().then(a => setAgents(a.filter((ag: any) => ag.status === 'idle' || ag.status === 'working'))).catch(() => {})
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load()
+    const token = localStorage.getItem('admin_token')
+    if (token) gatewaySocket.connect(token)
+
+    // Escuchar cambios en tareas via WebSocket
+    const handleTaskResult = (msg: any) => {
+      if (msg.type === 'task_result') {
+        // Recargar la tarea si está abierta en el modal
+        if (selected?.id === msg.task_id) loadTask(msg.task_id)
+        // Recargar lista de tareas
+        load()
+      }
+    }
+
+    gatewaySocket.on('task_result', handleTaskResult)
+    return () => gatewaySocket.off('task_result', handleTaskResult)
+  }, [])
+
+  // Recargar tarea actual periodicamente para mantener mensajes sincronizados
+  useEffect(() => {
+    if (!selected?.id) return
+    const loadSelectedTask = async () => {
+      const t = await api.getTask(selected.id).catch(() => null)
+      if (t) { setSelected(t); setMessages(t.messages || []) }
+    }
+    const interval = setInterval(loadSelectedTask, 2000)
+    return () => clearInterval(interval)
+  }, [selected?.id])
 
   async function loadTask(id: string) {
     const t = await api.getTask(id).catch(() => null)

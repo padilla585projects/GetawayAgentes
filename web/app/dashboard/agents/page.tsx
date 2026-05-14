@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { api } from '@/lib/api'
+import { gatewaySocket } from '@/lib/ws'
 import clsx from 'clsx'
 
 const STATUS_COLOR: Record<string, string> = {
@@ -32,8 +33,25 @@ export default function AgentsPage() {
 
   useEffect(() => {
     load()
-    const iv = setInterval(load, 5000)
-    return () => clearInterval(iv)
+    const token = localStorage.getItem('admin_token')
+    if (token) gatewaySocket.connect(token)
+
+    // Escuchar cambios en agentes via WebSocket
+    const handleAgentEvent = (msg: any) => {
+      if (msg.type === 'agent_online' || msg.type === 'agent_offline' || msg.type === 'agent_pending') {
+        load()
+      }
+    }
+
+    gatewaySocket.on('agent_online', handleAgentEvent)
+    gatewaySocket.on('agent_offline', handleAgentEvent)
+    gatewaySocket.on('agent_pending', handleAgentEvent)
+
+    return () => {
+      gatewaySocket.off('agent_online', handleAgentEvent)
+      gatewaySocket.off('agent_offline', handleAgentEvent)
+      gatewaySocket.off('agent_pending', handleAgentEvent)
+    }
   }, [])
 
   async function approve(id: string, trust: string) {
