@@ -123,6 +123,69 @@ Si ya tienes cuenta en claude.ai con acceso a Claude Code:
 
 ---
 
+## Para no perder mejoras ni cambios
+
+**La regla de oro: guarda en GitHub al terminar cada sesión.**
+
+### Flujo habitual
+
+```bash
+# Ver qué has cambiado
+git status
+
+# Añadir los archivos modificados
+git add .
+
+# Guardar con un mensaje descriptivo
+git commit -m "descripción de lo que hiciste"
+
+# Subir a GitHub
+git push
+```
+
+### Si trabajas desde varios dispositivos
+
+Antes de empezar a editar en un nuevo dispositivo, descarga los últimos cambios:
+
+```bash
+git pull
+```
+
+Si no lo haces y editas en dos sitios a la vez, tendrás conflictos que resolver manualmente.
+
+### Dejar que Claude haga el commit por ti
+
+Claude Code puede commitear y hacer push directamente. Al final de una sesión de trabajo dile:
+
+> "Guarda todos los cambios de hoy con un commit descriptivo y súbelos a GitHub."
+
+### Qué NO se guarda en GitHub (y dónde sí)
+
+| Archivo | Por qué no | Dónde guardarlo |
+|---|---|---|
+| `web/.env.local` | Contiene URLs privadas | En un bloc de notas o gestor de contraseñas |
+| `gateway/wrangler.toml` (IDs reales) | IDs de tu cuenta Cloudflare | En Cloudflare Dashboard |
+| `SECRET_KEY` | Es un secreto | En Wrangler con `wrangler secret put SECRET_KEY` |
+
+Estos archivos están en `.gitignore` a propósito — nunca los subas.
+
+### Historial de cambios
+
+Para ver todo lo que se ha hecho en el proyecto:
+
+```bash
+git log --oneline
+```
+
+Si algo se rompe puedes volver a cualquier punto anterior:
+
+```bash
+git log --oneline          # ver el listado de commits con su código
+git checkout <código>      # volver a ese punto (solo para revisar)
+```
+
+---
+
 ## Contexto del proyecto al retomar
 
 Cuando abras Claude Code, puedes empezar con:
