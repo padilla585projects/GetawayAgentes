@@ -12,9 +12,16 @@ const app = new Hono<{ Bindings: Env }>()
 
 // CORS — permite peticiones desde la web app y la app móvil
 app.use('*', cors({
-  origin: ['http://localhost:3000', 'https://*.pages.dev', 'https://*.workers.dev'],
+  origin: (origin) => {
+    if (!origin) return '*'
+    if (origin.includes('localhost') || origin.endsWith('.pages.dev') || origin.endsWith('.workers.dev')) {
+      return origin
+    }
+    return null
+  },
   allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
 }))
 
 // Health check
