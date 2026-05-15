@@ -94,4 +94,14 @@ agents.patch('/:id/trust', requireAdmin, async (c) => {
   return c.json({ message: 'Nivel de confianza actualizado' })
 })
 
+// DELETE /agents/:id — eliminar agente (requiere admin)
+agents.delete('/:id', requireAdmin, async (c) => {
+  const id = c.req.param('id')
+  const agent = await c.env.DB.prepare('SELECT id FROM agents WHERE id = ?').bind(id).first()
+  if (!agent) return c.json({ error: 'Agente no encontrado' }, 404)
+  await c.env.DB.prepare('DELETE FROM agents WHERE id = ?').bind(id).run()
+  await c.env.KV.delete(`agent_token:${id}`)
+  return c.json({ message: 'Agente eliminado' })
+})
+
 export default agents
