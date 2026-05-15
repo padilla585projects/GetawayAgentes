@@ -2,17 +2,18 @@ name = "getaway-gateway"
 main = "src/index.ts"
 compatibility_date = "2024-05-01"
 compatibility_flags = ["nodejs_compat"]
+workers_dev = true
 
 # Base de datos D1
 [[d1_databases]]
 binding = "DB"
 database_name = "getaway-db"
-database_id = "PENDIENTE-CREAR-CON-wrangler-d1-create"
+database_id = "020a7269-72fd-4b0a-a00e-f3160edbf059"
 
 # KV para tokens y sesiones
 [[kv_namespaces]]
 binding = "KV"
-id = "PENDIENTE-CREAR-CON-wrangler-kv-namespace-create"
+id = "78ccd4f870d04b09b15e44a7e39f0ede"
 
 # Durable Objects para WebSockets en tiempo real
 [[durable_objects.bindings]]
@@ -21,7 +22,7 @@ class_name = "GatewayHub"
 
 [[migrations]]
 tag = "v1"
-new_classes = ["GatewayHub"]
+new_sqlite_classes = ["GatewayHub"]
 
 [vars]
 ENVIRONMENT = "development"

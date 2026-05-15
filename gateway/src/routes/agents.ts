@@ -2,10 +2,11 @@ import { Hono } from 'hono'
 import { Env, AgentStatus, AgentTrust } from '../models/types'
 import { nanoid } from '../services/utils'
 import { signToken, verifyToken } from '../services/auth'
+import { requireAdmin, requireAgent, getAuth } from '../middleware/auth'
 
 const agents = new Hono<{ Bindings: Env }>()
 
-// POST /agents/register — el agente pide entrar a la red
+// POST /agents/register — el agente pide entrar a la red (público)
 agents.post('/register', async (c) => {
   const body = await c.req.json()
   const id = nanoid()
@@ -37,8 +38,8 @@ agents.post('/register', async (c) => {
   return c.json({ message: 'Solicitud recibida. Esperando aprobación del administrador.', agent_id: id })
 })
 
-// POST /agents/:id/approve — admin aprueba al agente
-agents.post('/:id/approve', async (c) => {
+// POST /agents/:id/approve — admin aprueba al agente (requiere admin)
+agents.post('/:id/approve', requireAdmin, async (c) => {
   const id = c.req.param('id')
   const body = await c.req.json().catch(() => ({}))
   const trust = (body as any).trust_level || 'viewer'
@@ -58,15 +59,15 @@ agents.post('/:id/approve', async (c) => {
   return c.json({ message: `Agente aprobado`, token, trust_level: trust })
 })
 
-// POST /agents/:id/reject — admin rechaza al agente
-agents.post('/:id/reject', async (c) => {
+// POST /agents/:id/reject — admin rechaza al agente (requiere admin)
+agents.post('/:id/reject', requireAdmin, async (c) => {
   const id = c.req.param('id')
   await c.env.DB.prepare(`UPDATE agents SET status = 'rejected', updated_at = datetime('now') WHERE id = ?`).bind(id).run()
   return c.json({ message: 'Agente rechazado' })
 })
 
-// GET /agents — listar todos los agentes
-agents.get('/', async (c) => {
+// GET /agents — listar todos los agentes (requiere admin)
+agents.get('/', requireAdmin, async (c) => {
   const { results } = await c.env.DB.prepare(`
     SELECT id, name, description, capabilities, status, trust_level, last_seen, is_external, version, endpoint
     FROM agents ORDER BY created_at DESC
@@ -86,11 +87,21 @@ agents.get('/:id', async (c) => {
   return c.json({ ...agent, capabilities: JSON.parse(agent.capabilities as string || '[]'), metadata: JSON.parse(agent.metadata as string || '{}') })
 })
 
-// PATCH /agents/:id/trust — cambiar nivel de confianza
-agents.patch('/:id/trust', async (c) => {
+// PATCH /agents/:id/trust — cambiar nivel de confianza (requiere admin)
+agents.patch('/:id/trust', requireAdmin, async (c) => {
   const { trust_level } = await c.req.json<{ trust_level: AgentTrust }>()
   await c.env.DB.prepare(`UPDATE agents SET trust_level = ?, updated_at = datetime('now') WHERE id = ?`).bind(trust_level, c.req.param('id')).run()
   return c.json({ message: 'Nivel de confianza actualizado' })
+})
+
+// DELETE /agents/:id — eliminar agente (requiere admin)
+agents.delete('/:id', requireAdmin, async (c) => {
+  const id = c.req.param('id')
+  const agent = await c.env.DB.prepare('SELECT id FROM agents WHERE id = ?').bind(id).first()
+  if (!agent) return c.json({ error: 'Agente no encontrado' }, 404)
+  await c.env.DB.prepare('DELETE FROM agents WHERE id = ?').bind(id).run()
+  await c.env.KV.delete(`agent_token:${id}`)
+  return c.json({ message: 'Agente eliminado' })
 })
 
 export default agents

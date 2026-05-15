@@ -1,0 +1,468 @@
+openapi: 3.0.0
+info:
+  title: GetawayAgentes Gateway API
+  version: 1.0.0
+  description: API central para orquestar y gestionar agentes IA
+  contact:
+    name: Padilla585
+servers:
+  - url: https://getaway-gateway.alejandra-app.workers.dev
+    description: Production
+  - url: http://localhost:8787
+    description: Development
+
+paths:
+  /auth/setup:
+    post:
+      tags:
+        - Authentication
+      summary: Crear primer admin (solo desarrollo)
+      operationId: setupAdmin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminSetup"
+      responses:
+        "201":
+          description: Admin creado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  id:
+                    type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Login de admin
+      operationId: adminLogin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+      responses:
+        "200":
+          description: Token JWT
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                  username:
+                    type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /agents:
+    get:
+      tags:
+        - Agents
+      summary: Listar todos los agentes
+      operationId: listAgents
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Lista de agentes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Agent"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /agents/register:
+    post:
+      tags:
+        - Agents
+      summary: Registrar nuevo agente
+      operationId: registerAgent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentRegister"
+      responses:
+        "201":
+          description: Agente registrado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  status:
+                    type: string
+                    enum: [pending]
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /agents/{agentId}:
+    get:
+      tags:
+        - Agents
+      summary: Obtener detalles de agente
+      operationId: getAgent
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Detalles del agente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Agent"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /agents/{agentId}/approve:
+    post:
+      tags:
+        - Agents
+      summary: Aprobar agente
+      operationId: approveAgent
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                trust_level:
+                  type: string
+                  enum: [viewer, contributor, trusted]
+      responses:
+        "200":
+          description: Agente aprobado
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /tasks:
+    get:
+      tags:
+        - Tasks
+      summary: Listar tareas
+      operationId: listTasks
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Lista de tareas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Task"
+    post:
+      tags:
+        - Tasks
+      summary: Crear nueva tarea
+      operationId: createTask
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskCreate"
+      responses:
+        "201":
+          description: Tarea creada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  status:
+                    type: string
+
+  /tasks/{taskId}:
+    get:
+      tags:
+        - Tasks
+      summary: Obtener detalles de tarea
+      operationId: getTask
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Detalles de la tarea
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+
+  /knowledge:
+    get:
+      tags:
+        - Knowledge
+      summary: Obtener base de conocimiento
+      operationId: getKnowledge
+      parameters:
+        - name: visibility
+          in: query
+          schema:
+            type: string
+            enum: [public, private]
+            default: public
+      responses:
+        "200":
+          description: Entradas de conocimiento
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Knowledge"
+
+    post:
+      tags:
+        - Knowledge
+      summary: Agregar conocimiento
+      operationId: addKnowledge
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KnowledgeCreate"
+      responses:
+        "201":
+          description: Conocimiento agregado
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    AdminSetup:
+      type: object
+      required:
+        - username
+        - email
+        - password
+      properties:
+        username:
+          type: string
+          minLength: 3
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+
+    AgentRegister:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+        capabilities:
+          type: array
+          items:
+            type: string
+        tags:
+          type: array
+          items:
+            type: string
+
+    Agent:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+          enum: [pending, idle, working, offline, rejected]
+        trust_level:
+          type: string
+          enum: [viewer, contributor, trusted]
+        capabilities:
+          type: array
+          items:
+            type: string
+        connected_at:
+          type: string
+          format: date-time
+        last_heartbeat:
+          type: string
+          format: date-time
+
+    TaskCreate:
+      type: object
+      required:
+        - title
+        - mode
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        mode:
+          type: string
+          enum: [broadcast, targeted, auto]
+        assigned_agents:
+          type: array
+          items:
+            type: string
+
+    Task:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [pending, assigned, in_progress, completed, failed]
+        mode:
+          type: string
+        assigned_agents:
+          type: array
+          items:
+            type: string
+        result:
+          type: object
+        created_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+
+    Knowledge:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        content:
+          type: string
+        visibility:
+          type: string
+          enum: [public, private]
+        source:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    KnowledgeCreate:
+      type: object
+      required:
+        - title
+        - content
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+        visibility:
+          type: string
+          default: public
+        source:
+          type: string
+
+  responses:
+    BadRequest:
+      description: Solicitud inválida
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+
+    Unauthorized:
+      description: No autenticado
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              code:
+                type: string
+              message:
+                type: string
+
+    Forbidden:
+      description: No autorizado
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              code:
+                type: string
+              message:
+                type: string
+
+    NotFound:
+      description: Recurso no encontrado
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string

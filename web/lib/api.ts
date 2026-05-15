@@ -22,9 +22,12 @@ export const api = {
   // Agentes
   getAgents: () => req<any[]>('/agents'),
   getAgent: (id: string) => req<any>(`/agents/${id}`),
+  registerAgent: (data: { name: string; description?: string; capabilities?: string[]; endpoint?: string; connection_type?: string }) =>
+    req('/agents/register', { method: 'POST', body: JSON.stringify(data) }),
   approveAgent: (id: string, trust_level = 'viewer') =>
     req(`/agents/${id}/approve`, { method: 'POST', body: JSON.stringify({ trust_level }) }),
   rejectAgent: (id: string) => req(`/agents/${id}/reject`, { method: 'POST' }),
+  deleteAgent: (id: string) => req(`/agents/${id}`, { method: 'DELETE' }),
   setTrust: (id: string, trust_level: string) =>
     req(`/agents/${id}/trust`, { method: 'PATCH', body: JSON.stringify({ trust_level }) }),
 

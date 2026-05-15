@@ -1,0 +1,54 @@
+name: Deploy to Cloudflare
+
+on:
+  push:
+    branches:
+      - claude/add-claude-documentation-KdUQt
+      - main
+
+jobs:
+  deploy-gateway:
+    name: Deploy Gateway
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install gateway dependencies
+        run: cd gateway && npm install
+
+      - name: Deploy gateway to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          workingDirectory: gateway
+
+  deploy-web:
+    name: Deploy Web
+    runs-on: ubuntu-latest
+    needs: deploy-gateway
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install web dependencies
+        run: cd web && npm install
+
+      - name: Build web
+        run: cd web && npm run build
+        env:
+          NEXT_PUBLIC_GATEWAY_URL: https://getaway-gateway.alejandra-app.workers.dev
+          NEXT_PUBLIC_WS_URL: wss://getaway-gateway.alejandra-app.workers.dev
+
+      - name: Deploy web to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          command: pages deploy out --project-name getaway-web --commit-dirty=true
+          workingDirectory: web

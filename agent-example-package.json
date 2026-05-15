@@ -1,0 +1,13 @@
+{
+  "name": "getaway-agent-example",
+  "version": "1.0.0",
+  "description": "Agente de ejemplo para GetawayAgentes",
+  "main": "agent-example.js",
+  "scripts": {
+    "start": "node agent-example.js",
+    "dev": "node agent-example.js"
+  },
+  "dependencies": {
+    "ws": "^8.16.0"
+  }
+}

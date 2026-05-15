@@ -1,11 +1,12 @@
 import { Hono } from 'hono'
 import { Env } from '../models/types'
 import { nanoid } from '../services/utils'
+import { requireAdmin, requireAgent, getAuth } from '../middleware/auth'
 
 const tasks = new Hono<{ Bindings: Env }>()
 
-// POST /tasks — crear y enviar una tarea
-tasks.post('/', async (c) => {
+// POST /tasks — crear y enviar una tarea (requiere admin)
+tasks.post('/', requireAdmin, async (c) => {
   const body = await c.req.json()
   const id = nanoid()
 
@@ -48,8 +49,8 @@ tasks.post('/', async (c) => {
   return c.json({ message: 'Tarea enviada', task_id: id, mode })
 })
 
-// GET /tasks — listar todas las tareas
-tasks.get('/', async (c) => {
+// GET /tasks — listar todas las tareas (requiere admin)
+tasks.get('/', requireAdmin, async (c) => {
   const { results } = await c.env.DB.prepare(`
     SELECT id, title, status, mode, priority, assigned_agents, created_at, completed_at
     FROM tasks ORDER BY created_at DESC
@@ -61,8 +62,8 @@ tasks.get('/', async (c) => {
   })))
 })
 
-// GET /tasks/:id — detalle de tarea con mensajes
-tasks.get('/:id', async (c) => {
+// GET /tasks/:id — detalle de tarea con mensajes (requiere admin o agente asignado)
+tasks.get('/:id', requireAdmin, async (c) => {
   const id = c.req.param('id')
   const task = await c.env.DB.prepare('SELECT * FROM tasks WHERE id = ?').bind(id).first()
   if (!task) return c.json({ error: 'Tarea no encontrada' }, 404)
@@ -79,8 +80,13 @@ tasks.get('/:id', async (c) => {
   })
 })
 
-// POST /tasks/:id/message — admin o agente manda un mensaje en una tarea
+// POST /tasks/:id/message — admin o agente manda un mensaje en una tarea (requiere autenticación)
 tasks.post('/:id/message', async (c) => {
+  // Verificación manual para permitir admin o agent
+  const token = c.req.header('Authorization')?.replace('Bearer ', '')
+  if (!token) return c.json({ error: 'Token requerido' }, 401)
+  const payload = await (await import('../services/auth')).verifyToken(token, c.env.SECRET_KEY)
+  if (!payload) return c.json({ error: 'Token inválido' }, 401)
   const body = await c.req.json()
   const msgId = nanoid()
 
@@ -92,8 +98,13 @@ tasks.post('/:id/message', async (c) => {
   return c.json({ message: 'Mensaje guardado', id: msgId })
 })
 
-// PATCH /tasks/:id/complete — marcar tarea como completada
+// PATCH /tasks/:id/complete — marcar tarea como completada (requiere admin o agente)
 tasks.patch('/:id/complete', async (c) => {
+  const token = c.req.header('Authorization')?.replace('Bearer ', '')
+  if (!token) return c.json({ error: 'Token requerido' }, 401)
+  const payload = await (await import('../services/auth')).verifyToken(token, c.env.SECRET_KEY)
+  if (!payload) return c.json({ error: 'Token inválido' }, 401)
+
   const body = await c.req.json().catch(() => ({}))
   await c.env.DB.prepare(`
     UPDATE tasks SET status = 'completed', result = ?, completed_at = datetime('now'), updated_at = datetime('now') WHERE id = ?
