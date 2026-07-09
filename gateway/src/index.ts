@@ -8,10 +8,17 @@ import chat from './routes/chat'
 import improvements from './routes/improvements'
 import { verifyToken } from './services/auth'
 import { handleMcpRequest } from './mcp/server'
+import { ensureSchema } from './services/schema'
 
 export { GatewayHub } from './durable/GatewayHub'
 
 const app = new Hono<{ Bindings: Env }>()
+
+// Asegura el esquema de base de datos al iniciar
+app.use('*', async (c, next) => {
+  await ensureSchema(c.env.DB)
+  await next()
+})
 
 // CORS — permite peticiones desde la web app y la app móvil
 app.use('*', cors({
