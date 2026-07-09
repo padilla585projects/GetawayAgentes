@@ -9,6 +9,8 @@ const nav = [
   { href: '/dashboard/agents', label: 'Agentes', icon: '◉' },
   { href: '/dashboard/tasks', label: 'Tareas', icon: '◎' },
   { href: '/dashboard/knowledge', label: 'Conocimiento', icon: '◇' },
+  { href: '/dashboard/chat', label: 'Chat', icon: '💬' },
+  { href: '/dashboard/improvements', label: 'Mejoras', icon: '💡' },
 ]
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {

@@ -101,11 +101,12 @@ export default function AgentsPage() {
       <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-gray-800 text-gray-400">
+              <tr className="border-b border-gray-800 text-gray-400">
               <th className="text-left px-5 py-3">Agente</th>
               <th className="text-left px-5 py-3">Capacidades</th>
               <th className="text-left px-5 py-3">Estado</th>
               <th className="text-left px-5 py-3">Confianza</th>
+              <th className="text-left px-5 py-3">Online</th>
               <th className="text-left px-5 py-3">Visto</th>
             </tr>
           </thead>
@@ -146,13 +147,16 @@ export default function AgentsPage() {
                     {TRUST_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
                 </td>
+                <td className="px-5 py-3">
+                  <span className={clsx('w-2.5 h-2.5 rounded-full inline-block', agent.is_online ? 'bg-green-400' : 'bg-gray-600')} />
+                </td>
                 <td className="px-5 py-3 text-gray-500 text-xs">
                   {agent.last_seen ? new Date(agent.last_seen).toLocaleString() : '—'}
                 </td>
               </tr>
             ))}
             {rest.length === 0 && (
-              <tr><td colSpan={5} className="px-5 py-8 text-center text-gray-500">Sin agentes registrados</td></tr>
+              <tr><td colSpan={6} className="px-5 py-8 text-center text-gray-500">Sin agentes registrados</td></tr>
             )}
           </tbody>
         </table>
@@ -166,6 +170,10 @@ export default function AgentsPage() {
               <div>
                 <h3 className="text-white text-xl font-bold">{selected.name}</h3>
                 <p className="text-gray-400 text-sm">v{selected.version} · {selected.is_external ? 'Externo' : 'Interno'}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={clsx('w-2.5 h-2.5 rounded-full', selected.is_online ? 'bg-green-400' : 'bg-gray-600')} />
+                <span className="text-xs text-gray-400">{selected.is_online ? 'Online' : 'Offline'}</span>
               </div>
               <button onClick={() => setSelected(null)} className="text-gray-500 hover:text-white text-xl">✕</button>
             </div>

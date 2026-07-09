@@ -13,6 +13,15 @@ const STATUS_COLOR: Record<string, string> = {
   cancelled: 'text-gray-600',
 }
 
+const STATUS_BG: Record<string, string> = {
+  pending: 'bg-gray-800 text-gray-400 border border-gray-700',
+  assigned: 'bg-yellow-900/50 text-yellow-300 border border-yellow-800',
+  in_progress: 'bg-blue-900/50 text-blue-300 border border-blue-800',
+  collaborating: 'bg-purple-900/50 text-purple-300 border border-purple-800',
+  completed: 'bg-green-900/50 text-green-300 border border-green-800',
+  failed: 'bg-red-900/50 text-red-300 border border-red-800',
+}
+
 export default function TasksPage() {
   const [tasks, setTasks] = useState<any[]>([])
   const [agents, setAgents] = useState<any[]>([])
@@ -24,7 +33,7 @@ export default function TasksPage() {
 
   const load = () => {
     api.getTasks().then(setTasks).catch(() => {})
-    api.getAgents().then(a => setAgents(a.filter((ag: any) => ag.status === 'idle' || ag.status === 'working'))).catch(() => {})
+    api.getAgents().then(a => setAgents(a)).catch(() => {})
   }
 
   useEffect(() => { load() }, [])
@@ -45,10 +54,19 @@ export default function TasksPage() {
   async function sendMsg(e: React.FormEvent) {
     e.preventDefault()
     if (!newMsg.trim() || !selected) return
-    await api.sendMessage(selected.id, { sender_id: 'admin', sender_name: 'Admin', content: newMsg, message_type: 'text' }).catch(() => {})
+    await api.sendMessage(selected.id, {
+      sender_id: 'admin',
+      sender_name: 'Admin',
+      content: newMsg,
+      message_type: 'text',
+      broadcast_to_agents: true,
+    }).catch(() => {})
     setNewMsg('')
     loadTask(selected.id)
   }
+
+  const subtasks = selected?.context?.subtasks || []
+  const completedSubtasks = subtasks.filter((s: any) => s.status === 'completed').length
 
   return (
     <div className="space-y-6">
@@ -59,7 +77,7 @@ export default function TasksPage() {
         </button>
       </div>
 
-      {/* Lista de tareas */}
+      {/* Task list */}
       <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
         <table className="w-full text-sm">
           <thead>
@@ -67,6 +85,7 @@ export default function TasksPage() {
               <th className="text-left px-5 py-3">Título</th>
               <th className="text-left px-5 py-3">Modo</th>
               <th className="text-left px-5 py-3">Estado</th>
+              <th className="text-left px-5 py-3">Agentes</th>
               <th className="text-left px-5 py-3">Prioridad</th>
               <th className="text-left px-5 py-3">Creada</th>
             </tr>
@@ -75,47 +94,90 @@ export default function TasksPage() {
             {tasks.map(task => (
               <tr key={task.id} onClick={() => loadTask(task.id)} className="border-b border-gray-800 hover:bg-gray-800 cursor-pointer">
                 <td className="px-5 py-3 text-white font-medium">{task.title}</td>
-                <td className="px-5 py-3 text-gray-400">{task.mode}</td>
+                <td className="px-5 py-3">
+                  <span className={clsx('text-xs px-2 py-1 rounded-full', task.mode === 'collaborative' ? 'bg-purple-900/50 text-purple-300 border border-purple-800' : 'text-gray-400')}>
+                    {task.mode}
+                  </span>
+                </td>
                 <td className={clsx('px-5 py-3 font-medium', STATUS_COLOR[task.status])}>{task.status}</td>
+                <td className="px-5 py-3 text-gray-400">{task.assigned_agents?.length || 0}</td>
                 <td className="px-5 py-3 text-gray-400">{task.priority}/10</td>
                 <td className="px-5 py-3 text-gray-500 text-xs">{new Date(task.created_at).toLocaleString()}</td>
               </tr>
             ))}
             {tasks.length === 0 && (
-              <tr><td colSpan={5} className="px-5 py-8 text-center text-gray-500">Sin tareas</td></tr>
+              <tr><td colSpan={6} className="px-5 py-8 text-center text-gray-500">Sin tareas</td></tr>
             )}
           </tbody>
         </table>
       </div>
 
-      {/* Modal detalle + chat de tarea */}
+      {/* Task detail + chat modal */}
       {selected && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-2xl flex flex-col max-h-[85vh]">
+          <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-3xl flex flex-col max-h-[85vh]">
+            {/* Header */}
             <div className="flex justify-between items-start p-5 border-b border-gray-800">
-              <div>
-                <h3 className="text-white font-bold text-lg">{selected.title}</h3>
-                <p className="text-gray-400 text-sm mt-0.5">{selected.description}</p>
+              <div className="flex-1">
+                <div className="flex items-center gap-3">
+                  <h3 className="text-white font-bold text-lg">{selected.title}</h3>
+                  <span className={clsx('text-xs px-2 py-1 rounded-full', STATUS_BG[selected.status] || 'bg-gray-800 text-gray-400')}>
+                    {selected.status}
+                  </span>
+                  {selected.mode === 'collaborative' && (
+                    <span className="text-xs px-2 py-1 rounded-full bg-purple-900/50 text-purple-300 border border-purple-800">
+                      Colaborativa
+                    </span>
+                  )}
+                </div>
+                <p className="text-gray-400 text-sm mt-1">{selected.description}</p>
               </div>
               <button onClick={() => setSelected(null)} className="text-gray-500 hover:text-white text-xl ml-4">✕</button>
             </div>
 
-            {/* Mensajes */}
+            {/* Subtasks progress (for collaborative tasks) */}
+            {selected.mode === 'collaborative' && subtasks.length > 0 && (
+              <div className="px-5 py-3 border-b border-gray-800 bg-gray-800/30">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-gray-400 text-sm">Progreso de colaboración</p>
+                  <p className="text-gray-500 text-xs">{completedSubtasks}/{subtasks.length} subtareas</p>
+                </div>
+                <div className="w-full bg-gray-800 rounded-full h-2">
+                  <div
+                    className="bg-purple-500 h-2 rounded-full transition-all duration-500"
+                    style={{ width: `${subtasks.length > 0 ? (completedSubtasks / subtasks.length) * 100 : 0}%` }}
+                  />
+                </div>
+                <div className="mt-3 space-y-1.5">
+                  {subtasks.map((st: any) => (
+                    <div key={st.id} className="flex items-center gap-2 text-xs">
+                      <span className={clsx('w-2 h-2 rounded-full', st.status === 'completed' ? 'bg-green-400' : 'bg-gray-600')} />
+                      <span className="text-gray-400">{st.agent_name}</span>
+                      <span className="text-gray-600">—</span>
+                      <span className="text-gray-500 truncate flex-1">{st.description?.slice(0, 80)}</span>
+                      <span className={clsx('text-xs', st.status === 'completed' ? 'text-green-400' : 'text-gray-600')}>{st.status}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Messages */}
             <div className="flex-1 overflow-auto p-4 space-y-3">
               {messages.length === 0
                 ? <p className="text-gray-500 text-sm text-center py-4">Sin mensajes aún</p>
                 : messages.map((m: any) => (
                   <div key={m.id} className={clsx('flex gap-2', m.sender_id === 'admin' ? 'justify-end' : 'justify-start')}>
-                    <div className={clsx('max-w-sm rounded-xl px-4 py-2.5 text-sm', m.sender_id === 'admin' ? 'bg-blue-700 text-white' : 'bg-gray-800 text-gray-200')}>
+                    <div className={clsx('max-w-md rounded-xl px-4 py-2.5 text-sm', m.sender_id === 'admin' ? 'bg-blue-700 text-white' : 'bg-gray-800 text-gray-200')}>
                       {m.sender_id !== 'admin' && <p className="text-xs text-gray-400 mb-1">{m.sender_name}</p>}
-                      <p>{m.content}</p>
+                      <p className="whitespace-pre-wrap">{m.content}</p>
                     </div>
                   </div>
                 ))
               }
             </div>
 
-            {/* Input de mensaje */}
+            {/* Message input */}
             <form onSubmit={sendMsg} className="p-4 border-t border-gray-800 flex gap-3">
               <input
                 value={newMsg}
@@ -129,7 +191,7 @@ export default function TasksPage() {
         </div>
       )}
 
-      {/* Modal nueva tarea */}
+      {/* New task modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
           <form onSubmit={createTask} className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-lg space-y-4">
@@ -155,6 +217,7 @@ export default function TasksPage() {
                   <option value="auto">Auto (gateway decide)</option>
                   <option value="broadcast">Todos los agentes</option>
                   <option value="targeted">Agente específico</option>
+                  <option value="collaborative">Colaborativa (multi-agente)</option>
                 </select>
               </div>
               <div>
@@ -170,8 +233,17 @@ export default function TasksPage() {
                 <select multiple value={form.assigned_agents}
                   onChange={e => setForm(f => ({ ...f, assigned_agents: Array.from(e.target.selectedOptions, o => o.value) }))}
                   className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white h-28">
-                  {agents.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                  {agents.filter((a: any) => a.status === 'idle' || a.status === 'working').map((a: any) => (
+                    <option key={a.id} value={a.id}>{a.name} ({a.capabilities?.join(', ')})</option>
+                  ))}
                 </select>
+              </div>
+            )}
+            {form.mode === 'collaborative' && (
+              <div className="bg-purple-900/20 border border-purple-800/50 rounded-lg p-3">
+                <p className="text-purple-300 text-sm">
+                  Los agentes online recibirán subtareas según sus capacidades. Colaborarán y compartirán resultados en tiempo real.
+                </p>
               </div>
             )}
             <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white py-2.5 rounded-lg font-medium">

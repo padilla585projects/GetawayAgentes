@@ -1,7 +1,7 @@
 export type AgentStatus = 'pending' | 'idle' | 'working' | 'sleeping' | 'offline' | 'rejected'
 export type AgentTrust = 'viewer' | 'contributor' | 'trusted'
 export type TaskStatus = 'pending' | 'assigned' | 'in_progress' | 'collaborating' | 'completed' | 'failed' | 'cancelled'
-export type TaskMode = 'broadcast' | 'targeted' | 'auto'
+export type TaskMode = 'broadcast' | 'targeted' | 'auto' | 'collaborative'
 export type KnowledgeVisibility = 'public' | 'trusted' | 'private'
 
 export interface Agent {
@@ -63,6 +63,19 @@ export interface KnowledgeEntry {
   created_at: string
 }
 
+export interface ChatMessage {
+  id: string
+  sender_id: string
+  sender_name: string
+  sender_role: 'admin' | 'agent'
+  content: string
+  channel: string
+  target_agent_id: string | null
+  message_type: 'text' | 'system' | 'learning' | 'improvement'
+  metadata: Record<string, unknown>
+  created_at: string
+}
+
 // Bindings de Cloudflare definidos en wrangler.toml
 export interface Env {
   DB: D1Database
@@ -70,6 +83,19 @@ export interface Env {
   GATEWAY_HUB: DurableObjectNamespace
   SECRET_KEY: string
   ENVIRONMENT: string
+}
+
+// Subtarea dentro de una tarea colaborativa
+export interface Subtask {
+  id: string
+  task_id: string
+  agent_id: string
+  agent_name: string
+  description: string
+  status: 'pending' | 'in_progress' | 'completed' | 'failed'
+  result?: Record<string, unknown>
+  created_at: string
+  completed_at?: string
 }
 
 // Mensajes WebSocket entre agentes y el gateway
@@ -83,12 +109,27 @@ export type WsMessageType =
   | 'task_result'
   | 'agent_message'
   | 'knowledge_add'
+  | 'knowledge_query'
+  | 'knowledge_response'
+  | 'knowledge_published'
   | 'agent_online'
   | 'agent_offline'
   | 'agent_pending'
   | 'registration_approved'
   | 'registration_rejected'
   | 'knowledge_proposal'
+  | 'collaborate_request'
+  | 'collaborate_accept'
+  | 'collaborate_reject'
+  | 'subtask_assigned'
+  | 'subtask_result'
+  | 'task_status_update'
+  | 'agents_list'
+  | 'orchestration_complete'
+  | 'chat_response'
+  | 'chat_message'
+  | 'learning_task'
+  | 'improvement_proposal'
 
 export interface WsMessage {
   type: WsMessageType

@@ -1,6 +1,11 @@
 'use client'
 
-type WsHandler = (msg: any) => void
+interface WsMessage {
+  type: string
+  [key: string]: unknown
+}
+
+type WsHandler = (msg: WsMessage) => void
 
 class GatewaySocket {
   private ws: WebSocket | null = null
@@ -13,7 +18,7 @@ class GatewaySocket {
 
     this.ws.onmessage = (e) => {
       try {
-        const msg = JSON.parse(e.data)
+        const msg = JSON.parse(e.data) as WsMessage
         const listeners = this.handlers.get(msg.type) || []
         listeners.forEach(fn => fn(msg))
         const allListeners = this.handlers.get('*') || []

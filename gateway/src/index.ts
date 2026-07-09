@@ -4,7 +4,10 @@ import { Env } from './models/types'
 import agents from './routes/agents'
 import tasks from './routes/tasks'
 import knowledge from './routes/knowledge'
+import chat from './routes/chat'
+import improvements from './routes/improvements'
 import { verifyToken } from './services/auth'
+import { handleMcpRequest } from './mcp/server'
 
 export { GatewayHub } from './durable/GatewayHub'
 
@@ -20,7 +23,7 @@ app.use('*', cors({
 // Health check
 app.get('/', c => c.json({ status: 'ok', name: 'GetawayAgentes Gateway', version: '1.0.0' }))
 
-// WebSocket — conexión de agentes y admins al hub en tiempo real
+// WebSocket — agent and admin real-time connection
 app.get('/ws', async (c) => {
   const role = c.req.query('role') || 'agent'
   const token = c.req.query('token') || c.req.header('Authorization')?.replace('Bearer ', '')
@@ -30,11 +33,23 @@ app.get('/ws', async (c) => {
   const payload = await verifyToken(token, c.env.SECRET_KEY)
   if (!payload) return c.json({ error: 'Token inválido' }, 401)
 
+  // For agents, fetch capabilities from DB to pass to the hub
+  let capabilities: string[] = []
+  if (role === 'agent') {
+    const agent = await c.env.DB.prepare('SELECT capabilities FROM agents WHERE id = ?').bind(payload.sub).first()
+    if (agent) {
+      capabilities = JSON.parse(agent.capabilities as string || '[]')
+    }
+  }
+
   const hub = c.env.GATEWAY_HUB.get(c.env.GATEWAY_HUB.idFromName('main'))
   const url = new URL(c.req.url)
   url.searchParams.set('session_id', payload.sub as string)
   url.searchParams.set('name', payload.name as string || '')
   url.searchParams.set('role', role)
+  if (capabilities.length > 0) {
+    url.searchParams.set('capabilities', JSON.stringify(capabilities))
+  }
 
   return hub.fetch(new Request(url.toString(), c.req.raw))
 })
@@ -43,6 +58,8 @@ app.get('/ws', async (c) => {
 app.route('/agents', agents)
 app.route('/tasks', tasks)
 app.route('/knowledge', knowledge)
+app.route('/chat', chat)
+app.route('/improvements', improvements)
 
 // Admin login
 app.post('/auth/login', async (c) => {
@@ -57,6 +74,11 @@ app.post('/auth/login', async (c) => {
 
   const token = await signToken({ sub: admin.id, name: admin.username, type: 'admin' }, c.env.SECRET_KEY)
   return c.json({ token, username: admin.username })
+})
+
+// MCP endpoint — Model Context Protocol server
+app.all('/mcp', async (c) => {
+  return handleMcpRequest(c.req.raw, c.env)
 })
 
 // Crear primer admin (solo en development)

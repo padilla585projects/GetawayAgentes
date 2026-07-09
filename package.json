@@ -1,0 +1,18 @@
+{
+  "name": "getaway-agentes",
+  "version": "1.0.0",
+  "description": "AI Agent Network Platform",
+  "private": true,
+  "scripts": {
+    "start": "node start.js",
+    "start:gateway": "cd gateway && npm run dev",
+    "start:web": "cd web && npm run dev",
+    "start:agents": "cd agents && node start-all.js",
+    "dev": "node start.js",
+    "setup": "cd gateway && npm run db:migrate",
+    "type-check": "cd gateway && npm run type-check",
+    "lint": "cd web && npm run lint"
+  },
+  "keywords": ["ai", "agents", "network", "collaboration"],
+  "license": "MIT"
+}

@@ -1,0 +1,9 @@
+{
+  "name": "getaway-agents",
+  "version": "1.0.0",
+  "description": "AI Agents for GetawayAgentes",
+  "private": true,
+  "dependencies": {
+    "ws": "^8.16.0"
+  }
+}
