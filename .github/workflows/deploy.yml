@@ -20,6 +20,11 @@ jobs:
       - name: Install gateway dependencies
         run: cd gateway && npm install
 
+      - name: Apply D1 migrations to production
+        run: cd gateway && npx wrangler d1 migrations apply getaway-db --remote --latest
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
       - name: Deploy gateway to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:
