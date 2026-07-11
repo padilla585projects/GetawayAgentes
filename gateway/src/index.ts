@@ -9,14 +9,16 @@ import improvements from './routes/improvements'
 import { verifyToken } from './services/auth'
 import { handleMcpRequest } from './mcp/server'
 import { ensureSchema } from './services/schema'
+import { ensureBuiltinAgents } from './agents/builtin'
 
 export { GatewayHub } from './durable/GatewayHub'
 
 const app = new Hono<{ Bindings: Env }>()
 
-// Asegura el esquema de base de datos al iniciar
+// Asegura el esquema de base de datos y los agentes built-in al iniciar
 app.use('*', async (c, next) => {
   await ensureSchema(c.env.DB)
+  await ensureBuiltinAgents(c.env.DB)
   await next()
 })
 

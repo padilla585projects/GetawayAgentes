@@ -1,8 +1,45 @@
 import { Hono } from 'hono'
 import { Env } from '../models/types'
 import { nanoid } from '../services/utils'
+import { BUILTIN_AGENTS, findBuiltinAgent, fallbackResponse, type BuiltinAgent } from '../agents/builtin'
 
 const chat = new Hono<{ Bindings: Env }>()
+
+// Genera y guarda la respuesta de un agente built-in a un mensaje.
+async function respondAsBuiltin(
+  env: Env,
+  agent: BuiltinAgent,
+  userMessage: string,
+  channel: string,
+  forced: boolean,
+): Promise<boolean> {
+  const reply = agent.respond(userMessage) ?? (forced ? fallbackResponse(agent) : null)
+  if (!reply) return false
+
+  const id = nanoid()
+  await env.DB.prepare(`
+    INSERT INTO chat_messages (id, sender_id, sender_name, sender_role, content, channel, target_agent_id, message_type, metadata)
+    VALUES (?, ?, ?, 'agent', ?, ?, NULL, 'text', '{}')
+  `).bind(id, agent.id, agent.name, reply, channel).run()
+
+  const hub = env.GATEWAY_HUB.get(env.GATEWAY_HUB.idFromName('main'))
+  await hub.fetch('http://internal/notify-admin', {
+    method: 'POST',
+    body: JSON.stringify({
+      type: 'chat_message',
+      id,
+      sender_id: agent.id,
+      sender_name: agent.name,
+      sender_role: 'agent',
+      content: reply,
+      channel,
+      target_agent_id: null,
+      message_type: 'text',
+      created_at: new Date().toISOString(),
+    }),
+  })
+  return true
+}
 
 // GET /chat — get chat messages (with pagination and channel filter)
 chat.get('/', async (c) => {
@@ -132,6 +169,30 @@ chat.post('/', async (c) => {
       created_at: new Date().toISOString(),
     }),
   })
+
+  // Respuesta server-side de los agentes built-in (siempre disponibles).
+  // Solo cuando el emisor es un humano (admin), no otro agente.
+  if (senderRole !== 'agent') {
+    const directTarget = targetAgentId || (findBuiltinAgent(channel) ? channel : null)
+    if (directTarget) {
+      const agent = findBuiltinAgent(directTarget)
+      if (agent) await respondAsBuiltin(c.env, agent, body.content, channel, true)
+    } else if (channel === 'general') {
+      // Broadcast: responden los agentes cuyo dominio coincide con el mensaje.
+      let answered = 0
+      for (const agent of BUILTIN_AGENTS) {
+        if (agent.respond(body.content)) {
+          await respondAsBuiltin(c.env, agent, body.content, 'general', false)
+          answered++
+        }
+      }
+      // Si nadie tuvo match, responde el coordinador como orientador.
+      if (answered === 0) {
+        const coordinator = findBuiltinAgent('builtin-project-coordinator')
+        if (coordinator) await respondAsBuiltin(c.env, coordinator, body.content, 'general', true)
+      }
+    }
+  }
 
   return c.json({ message: 'Mensaje enviado', id })
 })

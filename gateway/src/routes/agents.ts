@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { Env, AgentStatus, AgentTrust } from '../models/types'
 import { nanoid } from '../services/utils'
 import { signToken } from '../services/auth'
+import { BUILTIN_AGENT_IDS } from '../agents/builtin'
 
 const agents = new Hono<{ Bindings: Env }>()
 
@@ -116,7 +117,9 @@ agents.get('/', async (c) => {
     ...a,
     capabilities: JSON.parse(a.capabilities as string || '[]'),
     is_external: Boolean(a.is_external),
-    is_online: onlineIds.has(a.id as string),
+    // Los agentes built-in viven en el worker: siempre online.
+    is_online: BUILTIN_AGENT_IDS.has(a.id as string) || onlineIds.has(a.id as string),
+    is_builtin: BUILTIN_AGENT_IDS.has(a.id as string),
   })))
 })
 
