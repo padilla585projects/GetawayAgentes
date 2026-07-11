@@ -137,14 +137,21 @@ agents.patch('/:id/trust', async (c) => {
   return c.json({ message: 'Nivel de confianza actualizado' })
 })
 
-// DELETE /agents — cleanup all agents (dev only)
+// DELETE /agents — cleanup all non-builtin agents (dev only)
 agents.delete('/', async (c) => {
   if (c.env.ENVIRONMENT !== 'development') return c.json({ error: 'Solo en desarrollo' }, 403)
-  await c.env.DB.prepare('DELETE FROM agents').run()
-  await c.env.DB.prepare('DELETE FROM task_messages').run()
-  await c.env.DB.prepare('DELETE FROM tasks').run()
-  await c.env.DB.prepare('DELETE FROM knowledge_entries').run()
-  return c.json({ message: 'Base de datos limpiada' })
+  const ids = Array.from(BUILTIN_AGENT_IDS)
+  const placeholders = ids.map(() => '?').join(',')
+  await c.env.DB.prepare(`DELETE FROM agents WHERE id NOT IN (${placeholders})`).bind(...ids).run()
+  return c.json({ message: 'Agentes externos eliminados (built-in conservados)' })
+})
+
+// DELETE /agents/:id — remove a single agent (never built-in)
+agents.delete('/:id', async (c) => {
+  const id = c.req.param('id')
+  if (BUILTIN_AGENT_IDS.has(id)) return c.json({ error: 'No se puede eliminar un agente del sistema' }, 403)
+  await c.env.DB.prepare('DELETE FROM agents WHERE id = ?').bind(id).run()
+  return c.json({ message: 'Agente eliminado' })
 })
 
 export default agents
