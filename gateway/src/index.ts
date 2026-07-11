@@ -22,9 +22,19 @@ app.use('*', async (c, next) => {
   await next()
 })
 
-// CORS — permite peticiones desde la web app y la app móvil
+// CORS — permite peticiones desde la web app y la app móvil.
+// Hono hace coincidencia exacta en arrays, así que usamos una función
+// para aceptar cualquier subdominio *.pages.dev y *.workers.dev.
 app.use('*', cors({
-  origin: ['http://localhost:3000', 'https://*.pages.dev', 'https://*.workers.dev'],
+  origin: (origin) => {
+    if (!origin) return '*'
+    if (
+      origin === 'http://localhost:3000' ||
+      origin.endsWith('.pages.dev') ||
+      origin.endsWith('.workers.dev')
+    ) return origin
+    return null
+  },
   allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
 }))
