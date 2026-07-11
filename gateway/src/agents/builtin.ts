@@ -13,6 +13,13 @@ export interface BuiltinAgent {
 
 const has = (text: string, ...keywords: string[]) => keywords.some(k => text.includes(k))
 
+// Solo saluda si el mensaje es un saludo "puro" (corto y sin consulta real),
+// para que en un broadcast no respondan los 5 agentes a la vez.
+const isGreeting = (text: string) => {
+  const t = text.trim().toLowerCase()
+  return t.length <= 20 && /\b(hola|buenos|buenas|hey|hello|hi|saludos)\b/.test(t)
+}
+
 export const BUILTIN_AGENTS: BuiltinAgent[] = [
   {
     id: 'builtin-auto-electronics',
@@ -29,7 +36,7 @@ export const BUILTIN_AGENTS: BuiltinAgent[] = [
       if (has(lower, 'bujía', 'bujías', 'bujia', 'spark')) return '🔥 Especificaciones de bujías: torque 10-20 Nm, gap según fabricante. Puedo ayudarte con diagnóstico de misfire, selección de material y procedimiento de cambio.'
       if (has(lower, 'aceite', 'oil', 'motor')) return '🛢️ Tipos de aceite: Sintético (5W-30 más común), Semi-sintético, Mineral. Cambio cada 5.000-15.000 km. ¿Necesitas especificaciones para tu vehículo?'
       if (has(lower, 'can', 'k-line', 'protocolo')) return '🔌 Protocolos de comunicación: CAN bus (500 kbps alta velocidad, 125 kbps confort), K-Line (ISO 9141), LIN. ¿Necesitas diagnóstico de comunicación entre módulos?'
-      if (has(lower, 'hola', 'buenos', 'hello', 'hi ')) return '¡Hola! Soy el experto en electrónica automotriz. Puedo ayudarte con diagnóstico OBD-II, sensores, ECU, fusibles, bujías, protocolos CAN y más. ¿En qué puedo asistirte?'
+      if (isGreeting(lower)) return '¡Hola! Soy el experto en electrónica automotriz. Puedo ayudarte con diagnóstico OBD-II, sensores, ECU, fusibles, bujías, protocolos CAN y más. ¿En qué puedo asistirte?'
       return null
     },
   },
@@ -49,7 +56,7 @@ export const BUILTIN_AGENTS: BuiltinAgent[] = [
       if (has(lower, 'hormigón', 'hormigon', 'concreto', 'concrete')) return '🧱 Hormigón armado: dosificación típica C25/30 = 360kg cemento + 650L arena + 1100L grava + 185L agua por m³. Ensayo: cono de Abrams (slump) + compresión a 28 días. Resistencia: 25 MPa a 28 días.'
       if (has(lower, 'acero', 'steel')) return '⚙️ Acero estructural: S235 (genérico), S275 (estructuras), S355 (grandes cargas), S460 (alta resistencia). Tensión admisible: fy/1.15. Peso: 7.85 t/m³. Soldadura según UNE-EN 1090.'
       if (has(lower, 'eléctric', 'electric', 'cableado', 'sección')) return '⚡ Instalación eléctrica (REBT): caída de tensión máx 3% BT. Diferencial 30mA en baños, magnetotérmicos B/C/D. Puesta a tierra ≤4Ω. ¿Necesitas dimensionar un circuito?'
-      if (has(lower, 'hola', 'buenos', 'hello', 'hi ')) return '¡Hola! Soy el experto en construcción e ingeniería. Puedo ayudarte con cálculo estructural, CTE/REBT, PRL, HVAC, hormigón, acero y solar. ¿Qué necesitas?'
+      if (isGreeting(lower)) return '¡Hola! Soy el experto en construcción e ingeniería. Puedo ayudarte con cálculo estructural, CTE/REBT, PRL, HVAC, hormigón, acero y solar. ¿Qué necesitas?'
       return null
     },
   },
@@ -69,7 +76,7 @@ export const BUILTIN_AGENTS: BuiltinAgent[] = [
       if (has(lower, 'auditoría', 'auditoria', 'auditor', 'revisión')) return '🔍 Auditoría financiera: Planificación → Evaluación control interno → Procedimientos sustantivos → Informe. Materialidad: 2-5% ingresos, 1-2% activos. Riesgo de auditoría = RI × RC × RD.'
       if (has(lower, 'fiscalidad', 'internacional', 'mexico', 'méxico', 'colombia', 'argentina')) return '🌎 Fiscalidad internacional: México IVA 16%, ISR 30%. Colombia IVA 19%, Renta 35%. Argentina IVA 21%, Ganancias 35%. Chile IVA 19%. Perú IGV 18%. ¿Qué país necesitas?'
       if (has(lower, 'flujo de caja', 'tesorería', 'tesoreria', 'cash flow', 'liquidez')) return '💵 Flujo de caja: Operativo, Inversión y Financiación. Punto de equilibrio = CF fijos / (Precio - CV unitario). VAN = Σ(flujos/(1+r)^t) - Inversión inicial.'
-      if (has(lower, 'hola', 'buenos', 'hello', 'hi ')) return '¡Hola! Soy el experto financiero y contable. Puedo ayudarte con IVA, IRPF, Impuesto de Sociedades, NIIF, valoración de empresas, auditoría y flujo de caja. ¿En qué te ayudo?'
+      if (isGreeting(lower)) return '¡Hola! Soy el experto financiero y contable. Puedo ayudarte con IVA, IRPF, Impuesto de Sociedades, NIIF, valoración de empresas, auditoría y flujo de caja. ¿En qué te ayudo?'
       return null
     },
   },
@@ -89,7 +96,7 @@ export const BUILTIN_AGENTS: BuiltinAgent[] = [
       if (has(lower, 'fusión', 'fusion', 'adquisición', 'adquisicion', 'm&a', 'comprar empresa')) return '🤝 M&A: fusión, absorción, escisión, OPA. Due diligence: jurídica, financiera, fiscal, laboral, medioambiental. Cláusulas clave: garantías, no competencia, MAC clause, break fee, earn-out.'
       if (has(lower, 'compliance', 'cumplimiento', 'anticorrupción', 'blanqueo')) return '✅ Programa de compliance: código ético, canal de denuncias, due diligence de terceros, formación. Prevención de blanqueo (Ley 10/2010): identificar clientes, vigilar operaciones, comunicar a SEPBLAC.'
       if (has(lower, 'arbitraje', 'mediación', 'mediacion', 'conflicto', 'disputa')) return '⚖️ Resolución de conflictos: 1) Negociación, 2) Mediación (confidencial), 3) Arbitraje (vinculante, 3-12 meses), 4) Litigio (1-5+ años). Cláusula recomendada: Negociación → Mediación → Arbitraje.'
-      if (has(lower, 'hola', 'buenos', 'hello', 'hi ')) return '¡Hola! Soy el experto legal empresarial. Puedo ayudarte con contratos, derecho laboral, RGPD, propiedad industrial, compliance y M&A. ¿Qué necesitas?'
+      if (isGreeting(lower)) return '¡Hola! Soy el experto legal empresarial. Puedo ayudarte con contratos, derecho laboral, RGPD, propiedad industrial, compliance y M&A. ¿Qué necesitas?'
       return null
     },
   },
@@ -110,7 +117,7 @@ export const BUILTIN_AGENTS: BuiltinAgent[] = [
       if (has(lower, 'riesgo', 'riesgos')) return '⚠️ Gestión de riesgos: 4 respuestas = Evitar, Mitigar, Transferir, Aceptar. Matriz probabilidad × impacto (1-25). Herramientas: risk register, RBS, Monte Carlo, Ishikawa. ¿Quieres montar una matriz?'
       if (has(lower, 'calidad', 'control de calidad', 'iso')) return '✅ Calidad: ISO 9001 (gestión), ISO 14001 (medio ambiente), ISO 45001 (seguridad). Herramientas: Ishikawa, Pareto (80/20), PDCA, Six Sigma (≤3.4 DPMO), SPC. ¿Qué proceso quieres controlar?'
       if (has(lower, 'cronograma', 'pert', 'cpm', 'planificación', 'planificacion', 'gantt')) return '📅 Cronogramas: PERT (3 estimaciones), CPM (ruta crítica), Gantt (visualización). Holgura = LS - ES. La ruta crítica define la duración mínima del proyecto. ¿Necesitas planificar tareas?'
-      if (has(lower, 'hola', 'buenos', 'hello', 'hi ')) return '¡Hola! Soy el coordinador de proyectos. Puedo ayudarte con PMI/PMBOK, Agile/Scrum, contratación pública, BIM, ESG, Earned Value y gestión de riesgos. ¿En qué proyecto trabajas?'
+      if (isGreeting(lower)) return '¡Hola! Soy el coordinador de proyectos. Puedo ayudarte con PMI/PMBOK, Agile/Scrum, contratación pública, BIM, ESG, Earned Value y gestión de riesgos. ¿En qué proyecto trabajas?'
       return null
     },
   },
