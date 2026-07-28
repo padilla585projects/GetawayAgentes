@@ -89,9 +89,10 @@ jobs:
           NEXT_PUBLIC_GATEWAY_URL: https://getaway-gateway.alejandra-app.workers.dev
           NEXT_PUBLIC_WS_URL: wss://getaway-gateway.alejandra-app.workers.dev/ws
 
-      - name: Deploy web to Cloudflare Pages
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          command: pages deploy out --project-name getaway-web --commit-dirty=true
-          workingDirectory: web
+      - name: Deploy web to Cloudflare Workers
+        run: npx opennextjs-cloudflare build && npx opennextjs-cloudflare deploy
+        workingDirectory: web
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          NEXT_PUBLIC_GATEWAY_URL: https://getaway-gateway.alejandra-app.workers.dev
+          NEXT_PUBLIC_WS_URL: wss://getaway-gateway.alejandra-app.workers.dev/ws
