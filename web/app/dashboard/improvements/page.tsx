@@ -1,5 +1,6 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
+import { Lightbulb, CheckCircle, XCircle, Clock, Filter, RefreshCw, Sparkles, Target, Zap, Bot, Wrench, Book, Link, X } from 'lucide-react'
 import { api } from '@/lib/api'
 import { ImprovementProposal, ImprovementStats, LearningTask } from '@/lib/types'
 import clsx from 'clsx'
@@ -27,12 +28,12 @@ const TYPE_LABEL: Record<string, string> = {
   integration: 'Integración',
 }
 
-const TYPE_ICON: Record<string, string> = {
-  feature: '⚡',
-  new_agent: '🤖',
-  optimization: '🔧',
-  knowledge_gap: '📚',
-  integration: '🔗',
+const TYPE_ICON: Record<string, ReactNode> = {
+  feature: <Zap size={24} />,
+  new_agent: <Bot size={24} />,
+  optimization: <Wrench size={24} />,
+  knowledge_gap: <Book size={24} />,
+  integration: <Link size={24} />,
 }
 
 export default function ImprovementsPage() {
@@ -123,9 +124,9 @@ export default function ImprovementsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-white">Mejoras del Sistema</h2>
-        <button onClick={refreshData} className="text-gray-400 hover:text-white text-sm px-3 py-1 rounded-lg hover:bg-gray-800">
-          Actualizar
+        <h2 className="text-2xl font-bold text-white flex items-center gap-2"><Lightbulb size={24} className="text-yellow-400" /> Mejoras del Sistema</h2>
+        <button onClick={refreshData} className="text-gray-400 hover:text-white text-sm px-3 py-1 rounded-lg hover:bg-gray-800 inline-flex items-center gap-1">
+          <RefreshCw size={14} /> Actualizar
         </button>
       </div>
 
@@ -133,15 +134,18 @@ export default function ImprovementsPage() {
       {stats && (
         <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
           {[
-            { label: 'Total', value: stats.total, color: 'text-white' },
-            { label: 'Pendientes', value: stats.pending, color: 'text-yellow-400' },
-            { label: 'Aprobadas', value: stats.approved, color: 'text-green-400' },
-            { label: 'Implementadas', value: stats.implemented, color: 'text-purple-400' },
-            { label: 'Nuevos agentes', value: stats.new_agent_proposals, color: 'text-blue-400' },
-            { label: 'Funciones', value: stats.feature_proposals, color: 'text-orange-400' },
+            { label: 'Total', value: stats.total, color: 'text-white', icon: <Target size={14} className="text-white" /> },
+            { label: 'Pendientes', value: stats.pending, color: 'text-yellow-400', icon: <Clock size={14} className="text-yellow-400" /> },
+            { label: 'Aprobadas', value: stats.approved, color: 'text-green-400', icon: <CheckCircle size={14} className="text-green-400" /> },
+            { label: 'Implementadas', value: stats.implemented, color: 'text-purple-400', icon: <Sparkles size={14} className="text-purple-400" /> },
+            { label: 'Nuevos agentes', value: stats.new_agent_proposals, color: 'text-blue-400', icon: <Bot size={14} className="text-blue-400" /> },
+            { label: 'Funciones', value: stats.feature_proposals, color: 'text-orange-400', icon: <Zap size={14} className="text-orange-400" /> },
           ].map(stat => (
             <div key={stat.label} className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-              <p className="text-gray-500 text-xs">{stat.label}</p>
+              <div className="flex items-center gap-1.5 mb-1">
+                {stat.icon}
+                <p className="text-gray-500 text-xs">{stat.label}</p>
+              </div>
               <p className={`text-2xl font-bold mt-1 ${stat.color}`}>{stat.value}</p>
             </div>
           ))}
@@ -251,7 +255,7 @@ export default function ImprovementsPage() {
                   {selectedProposal.agent_name} · {TYPE_LABEL[selectedProposal.proposal_type]}
                 </p>
               </div>
-              <button onClick={() => setSelectedProposal(null)} className="text-gray-500 hover:text-white text-xl">✕</button>
+              <button onClick={() => setSelectedProposal(null)} className="text-gray-500 hover:text-white"><X size={20} /></button>
             </div>
 
             <div className="flex gap-2">
@@ -296,15 +300,15 @@ export default function ImprovementsPage() {
               <div className="flex gap-3 pt-2 border-t border-gray-800">
                 <button
                   onClick={() => reviewProposal(selectedProposal.id, 'approved')}
-                  className="flex-1 bg-green-700 hover:bg-green-600 text-white py-2 rounded-lg text-sm"
+                  className="flex-1 bg-green-700 hover:bg-green-600 text-white py-2 rounded-lg text-sm inline-flex items-center justify-center gap-1"
                 >
-                  Aprobar
+                  <CheckCircle size={14} /> Aprobar
                 </button>
                 <button
                   onClick={() => reviewProposal(selectedProposal.id, 'rejected')}
-                  className="flex-1 bg-red-800 hover:bg-red-700 text-white py-2 rounded-lg text-sm"
+                  className="flex-1 bg-red-800 hover:bg-red-700 text-white py-2 rounded-lg text-sm inline-flex items-center justify-center gap-1"
                 >
-                  Rechazar
+                  <XCircle size={14} /> Rechazar
                 </button>
                 <button
                   onClick={() => deleteProposal(selectedProposal.id)}

@@ -6,6 +6,8 @@ import { BUILTIN_AGENTS, findBuiltinAgent, fallbackResponse, type BuiltinAgent }
 const chat = new Hono<{ Bindings: Env }>()
 
 // Genera y guarda la respuesta de un agente built-in a un mensaje.
+// Si la IA no responde y no hay match por palabras clave, usa fallback
+// sólo cuando `forced` es true (mensaje directo o coordinador orientador).
 async function respondAsBuiltin(
   env: Env,
   agent: BuiltinAgent,
@@ -13,7 +15,8 @@ async function respondAsBuiltin(
   channel: string,
   forced: boolean,
 ): Promise<boolean> {
-  const reply = agent.respond(userMessage) ?? (forced ? fallbackResponse(agent) : null)
+  let reply = await agent.respond(userMessage, env)
+  if (!reply && forced) reply = fallbackResponse(agent)
   if (!reply) return false
 
   const id = nanoid()
@@ -102,99 +105,107 @@ chat.get('/agents', async (c) => {
 
 // POST /chat — send a message
 chat.post('/', async (c) => {
-  const body = await c.req.json()
-  const id = nanoid()
+  try {
+    const body = await c.req.json()
+    const id = nanoid()
 
-  const senderId = body.sender_id || 'admin'
-  const senderName = body.sender_name || 'Admin'
-  const senderRole = body.sender_role || 'admin'
-  const channel = body.channel || 'general'
-  const targetAgentId = body.target_agent_id || null
-  const messageType = body.message_type || 'text'
-  const metadata = body.metadata || {}
+    const content = body.message ?? body.content ?? ''
+    if (!content) return c.json({ error: 'Mensaje vacío' }, 400)
 
-  await c.env.DB.prepare(`
-    INSERT INTO chat_messages (id, sender_id, sender_name, sender_role, content, channel, target_agent_id, message_type, metadata)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).bind(
-    id, senderId, senderName, senderRole, body.content, channel,
-    targetAgentId, messageType, JSON.stringify(metadata),
-  ).run()
+    const senderId = body.sender_id || 'admin'
+    const senderName = body.sender_name || 'Admin'
+    const senderRole = body.sender_role || 'admin'
+    const channel = body.channel || 'general'
+    const targetAgentId = body.target_agent_id || null
+    const messageType = body.message_type || 'text'
+    const metadata = body.metadata || {}
 
-  // If directed to a specific agent, send via WebSocket
-  if (targetAgentId) {
-    const hub = c.env.GATEWAY_HUB.get(c.env.GATEWAY_HUB.idFromName('main'))
-    await hub.fetch('http://internal/send-agent', {
-      method: 'POST',
-      body: JSON.stringify({
-        agent_id: targetAgentId,
-        message: {
+    await c.env.DB.prepare(`
+      INSERT INTO chat_messages (id, sender_id, sender_name, sender_role, content, channel, target_agent_id, message_type, metadata)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      id, senderId, senderName, senderRole, content, channel,
+      targetAgentId, messageType, JSON.stringify(metadata),
+    ).run()
+
+    // If directed to a specific agent, send via WebSocket
+    if (targetAgentId) {
+      const hub = c.env.GATEWAY_HUB.get(c.env.GATEWAY_HUB.idFromName('main'))
+      await hub.fetch('http://internal/send-agent', {
+        method: 'POST',
+        body: JSON.stringify({
+          agent_id: targetAgentId,
+          message: {
+            type: 'agent_message',
+            from: senderId,
+            from_name: senderName,
+            content: content,
+            channel,
+          },
+        }),
+      })
+    } else if (channel === 'general') {
+      // Broadcast to all agents
+      const hub = c.env.GATEWAY_HUB.get(c.env.GATEWAY_HUB.idFromName('main'))
+      await hub.fetch('http://internal/broadcast-agents', {
+        method: 'POST',
+        body: JSON.stringify({
           type: 'agent_message',
           from: senderId,
           from_name: senderName,
-          content: body.content,
-          channel,
-        },
-      }),
-    })
-  } else if (channel === 'general') {
-    // Broadcast to all agents
+          content: content,
+          channel: 'general',
+        }),
+      })
+    }
+
+    // Notify admins of new message
     const hub = c.env.GATEWAY_HUB.get(c.env.GATEWAY_HUB.idFromName('main'))
-    await hub.fetch('http://internal/broadcast-agents', {
+    await hub.fetch('http://internal/notify-admin', {
       method: 'POST',
       body: JSON.stringify({
-        type: 'agent_message',
-        from: senderId,
-        from_name: senderName,
-        content: body.content,
-        channel: 'general',
+        type: 'chat_message',
+        id,
+        sender_id: senderId,
+        sender_name: senderName,
+        sender_role: senderRole,
+        content: content,
+        channel,
+        target_agent_id: targetAgentId,
+        message_type: messageType,
+        created_at: new Date().toISOString(),
       }),
     })
-  }
 
-  // Notify admins of new message
-  const hub = c.env.GATEWAY_HUB.get(c.env.GATEWAY_HUB.idFromName('main'))
-  await hub.fetch('http://internal/notify-admin', {
-    method: 'POST',
-    body: JSON.stringify({
-      type: 'chat_message',
-      id,
-      sender_id: senderId,
-      sender_name: senderName,
-      sender_role: senderRole,
-      content: body.content,
-      channel,
-      target_agent_id: targetAgentId,
-      message_type: messageType,
-      created_at: new Date().toISOString(),
-    }),
-  })
-
-  // Respuesta server-side de los agentes built-in (siempre disponibles).
-  // Solo cuando el emisor es un humano (admin), no otro agente.
-  if (senderRole !== 'agent') {
-    const directTarget = targetAgentId || (findBuiltinAgent(channel) ? channel : null)
-    if (directTarget) {
-      const agent = findBuiltinAgent(directTarget)
-      if (agent) await respondAsBuiltin(c.env, agent, body.content, channel, true)
-    } else if (channel === 'general') {
-      // Broadcast: responden los agentes cuyo dominio coincide con el mensaje.
-      let answered = 0
-      for (const agent of BUILTIN_AGENTS) {
-        if (agent.respond(body.content)) {
-          await respondAsBuiltin(c.env, agent, body.content, 'general', false)
-          answered++
+    // Respuesta server-side de los agentes built-in (siempre disponibles).
+    // Solo cuando el emisor es un humano (admin), no otro agente.
+    if (senderRole !== 'agent') {
+      const directTarget = targetAgentId || (findBuiltinAgent(channel) ? channel : null)
+      if (directTarget) {
+        const agent = findBuiltinAgent(directTarget)
+        if (agent) await respondAsBuiltin(c.env, agent, content, channel, true)
+      } else if (channel === 'general') {
+        // Broadcast: responden los agentes cuyo dominio coincide con el mensaje
+        // (filtro rápido por palabras clave; la respuesta real la genera la IA).
+        let answered = 0
+        for (const agent of BUILTIN_AGENTS) {
+          if (agent.keywordReply(content)) {
+            await respondAsBuiltin(c.env, agent, content, 'general', false)
+            answered++
+          }
+        }
+        // Si nadie tuvo match, responde el coordinador como orientador.
+        if (answered === 0) {
+          const coordinator = findBuiltinAgent('builtin-project-coordinator')
+          if (coordinator) await respondAsBuiltin(c.env, coordinator, content, 'general', true)
         }
       }
-      // Si nadie tuvo match, responde el coordinador como orientador.
-      if (answered === 0) {
-        const coordinator = findBuiltinAgent('builtin-project-coordinator')
-        if (coordinator) await respondAsBuiltin(c.env, coordinator, body.content, 'general', true)
-      }
     }
-  }
 
-  return c.json({ message: 'Mensaje enviado', id })
+    return c.json({ message: 'Mensaje enviado', id })
+  } catch (e: any) {
+    return c.json({ error: 'Error interno', detail: e?.message || String(e), stack: e?.stack }, 500)
+  }
 })
 
 // GET /chat/channels — list all active channels

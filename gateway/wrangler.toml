@@ -27,5 +27,11 @@ new_classes = ["GatewayHub"]
 ENVIRONMENT = "development"
 SECRET_KEY = "getaway-dev-secret-key-2024"
 
-# Secrets (definir con: wrangler secret put SECRET_KEY)
+# Secrets (definir con: wrangler secret put <NOMBRE>)
 # SECRET_KEY
+# OPENROUTER_KEY  — openrouter.ai
+# GROQ_KEY        — console.groq.com/keys
+# GEMINI_KEY      — ai.google.dev (Google AI Studio)
+# OPENAI_KEY      — platform.openai.com/api-keys
+# DEEPSEEK_KEY    — platform.deepseek.com/api_keys
+# ANTHROPIC_KEY   — console.anthropic.com/settings/keys

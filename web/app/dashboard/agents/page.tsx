@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { Bot, Shield, Wifi, WifiOff, Check, X, Eye, Star } from 'lucide-react'
 import { api } from '@/lib/api'
 import clsx from 'clsx'
 
@@ -84,11 +85,11 @@ export default function AgentsPage() {
                   <button onClick={() => setSelected(agent)} className="bg-blue-600 hover:bg-blue-500 text-white text-sm px-3 py-1.5 rounded-lg">
                     Ver tarjeta
                   </button>
-                  <button onClick={() => approve(agent.id, 'viewer')} disabled={loading} className="bg-green-700 hover:bg-green-600 text-white text-sm px-3 py-1.5 rounded-lg">
-                    Aprobar
+                  <button onClick={() => approve(agent.id, 'viewer')} disabled={loading} className="bg-green-700 hover:bg-green-600 text-white text-sm px-3 py-1.5 rounded-lg inline-flex items-center gap-1">
+                    <Check size={14} /> Aprobar
                   </button>
-                  <button onClick={() => reject(agent.id)} disabled={loading} className="bg-red-800 hover:bg-red-700 text-white text-sm px-3 py-1.5 rounded-lg">
-                    Rechazar
+                  <button onClick={() => reject(agent.id)} disabled={loading} className="bg-red-800 hover:bg-red-700 text-white text-sm px-3 py-1.5 rounded-lg inline-flex items-center gap-1">
+                    <X size={14} /> Rechazar
                   </button>
                 </div>
               </div>
@@ -148,7 +149,7 @@ export default function AgentsPage() {
                   </select>
                 </td>
                 <td className="px-5 py-3">
-                  <span className={clsx('w-2.5 h-2.5 rounded-full inline-block', agent.is_online ? 'bg-green-400' : 'bg-gray-600')} />
+                  {agent.is_online ? <Wifi size={16} className="text-green-400" /> : <WifiOff size={16} className="text-gray-600" />}
                 </td>
                 <td className="px-5 py-3 text-gray-500 text-xs">
                   {agent.last_seen ? new Date(agent.last_seen).toLocaleString() : '—'}
@@ -172,10 +173,10 @@ export default function AgentsPage() {
                 <p className="text-gray-400 text-sm">v{selected.version} · {selected.is_external ? 'Externo' : 'Interno'}</p>
               </div>
               <div className="flex items-center gap-2">
-                <span className={clsx('w-2.5 h-2.5 rounded-full', selected.is_online ? 'bg-green-400' : 'bg-gray-600')} />
+                {selected.is_online ? <Wifi size={16} className="text-green-400" /> : <WifiOff size={16} className="text-gray-600" />}
                 <span className="text-xs text-gray-400">{selected.is_online ? 'Online' : 'Offline'}</span>
               </div>
-              <button onClick={() => setSelected(null)} className="text-gray-500 hover:text-white text-xl">✕</button>
+              <button onClick={() => setSelected(null)} className="text-gray-500 hover:text-white"><X size={20} /></button>
             </div>
             <p className="text-gray-300 text-sm">{selected.description || 'Sin descripción'}</p>
             <div>
@@ -198,11 +199,11 @@ export default function AgentsPage() {
             </div>
             {selected.status === 'pending' && (
               <div className="flex gap-3 pt-2">
-                <button onClick={() => approve(selected.id, 'viewer')} className="flex-1 bg-green-700 hover:bg-green-600 text-white py-2 rounded-lg">
-                  Aprobar
+                <button onClick={() => approve(selected.id, 'viewer')} className="flex-1 bg-green-700 hover:bg-green-600 text-white py-2 rounded-lg inline-flex items-center justify-center gap-1">
+                  <Check size={14} /> Aprobar
                 </button>
-                <button onClick={() => reject(selected.id)} className="flex-1 bg-red-800 hover:bg-red-700 text-white py-2 rounded-lg">
-                  Rechazar
+                <button onClick={() => reject(selected.id)} className="flex-1 bg-red-800 hover:bg-red-700 text-white py-2 rounded-lg inline-flex items-center justify-center gap-1">
+                  <X size={14} /> Rechazar
                 </button>
               </div>
             )}

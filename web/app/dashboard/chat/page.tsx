@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState, useRef } from 'react'
+import { MessageSquare, Send, RefreshCw } from 'lucide-react'
 import { api } from '@/lib/api'
 import { gatewaySocket } from '@/lib/ws'
 
@@ -54,9 +55,17 @@ export default function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
+  const [autoScroll, setAutoScroll] = useState(true)
+
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+    if (autoScroll) messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages, autoScroll])
+
+  function handleScroll(e: React.UIEvent<HTMLDivElement>) {
+    const el = e.currentTarget
+    const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 100
+    if (isNearBottom !== autoScroll) setAutoScroll(isNearBottom)
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -174,16 +183,16 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-3rem)] gap-4">
+    <div className="flex flex-1 gap-4 min-h-0">
       {/* Sidebar de canales y agentes */}
-      <div className="w-64 bg-gray-900 border border-gray-800 rounded-xl flex flex-col">
-        <div className="p-4 border-b border-gray-800">
-          <h2 className="text-white font-semibold">Canales</h2>
+      <div className="w-48 shrink-0 bg-gray-900 border border-gray-800 rounded-xl flex flex-col">
+        <div className="p-3 border-b border-gray-800">
+          <h2 className="text-white font-semibold text-sm">Canales</h2>
         </div>
-        <div className="p-2 space-y-1">
+        <div className="p-1.5 space-y-0.5 overflow-y-auto">
           <button
             onClick={() => setSelectedChannel('general')}
-            className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+            className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
               selectedChannel === 'general'
                 ? 'bg-blue-600 text-white'
                 : 'text-gray-400 hover:text-white hover:bg-gray-800'
@@ -195,7 +204,7 @@ export default function ChatPage() {
             <button
               key={ch.channel}
               onClick={() => setSelectedChannel(ch.channel)}
-              className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+              className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
                 selectedChannel === ch.channel
                   ? 'bg-blue-600 text-white'
                   : 'text-gray-400 hover:text-white hover:bg-gray-800'
@@ -206,26 +215,26 @@ export default function ChatPage() {
           ))}
         </div>
 
-        <div className="p-4 border-t border-gray-800">
-          <h2 className="text-white font-semibold mb-3">Agentes</h2>
-          <div className="space-y-2 max-h-64 overflow-y-auto">
+        <div className="p-3 border-t border-gray-800">
+          <h2 className="text-white font-semibold text-sm mb-2">Agentes</h2>
+          <div className="space-y-1 overflow-y-auto max-h-60">
             {agents.map(agent => (
               <button
                 key={agent.id}
                 onClick={() => setSelectedChannel(agent.id)}
-                className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+                className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
                   selectedChannel === agent.id
                     ? 'bg-blue-600 text-white'
                     : 'text-gray-400 hover:text-white hover:bg-gray-800'
                 }`}
               >
-                <div className="flex items-center gap-2">
-                  <span className={`w-2 h-2 rounded-full ${getStatusColor(agent.status)}`} />
+                <div className="flex items-center gap-1.5">
+                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${getStatusColor(agent.status)}`} />
                   <span className="truncate">{agent.name}</span>
                 </div>
                 {agent.last_message && (
-                  <p className="text-xs text-gray-500 ml-4 mt-0.5">
-                    Último: {formatTime(agent.last_message)}
+                  <p className="text-[10px] text-gray-500 ml-3 mt-0.5 truncate">
+                    {formatTime(agent.last_message)}
                   </p>
                 )}
               </button>
@@ -235,55 +244,58 @@ export default function ChatPage() {
       </div>
 
       {/* Área de chat principal */}
-      <div className="flex-1 bg-gray-900 border border-gray-800 rounded-xl flex flex-col">
+      <div className="flex-1 bg-gray-900 border border-gray-800 rounded-xl flex flex-col min-w-0">
         {/* Header del canal */}
-        <div className="p-4 border-b border-gray-800 flex items-center justify-between">
-          <div>
-            <h2 className="text-white font-semibold">
-              {selectedChannel === 'general' ? '# general' : `# ${selectedChannel}`}
-            </h2>
-            <p className="text-gray-500 text-xs">
-              {selectedChannel === 'general'
-                ? 'Canal general — todos los agentes'
-                : `Chat directo con ${agents.find(a => a.id === selectedChannel)?.name || selectedChannel}`}
-            </p>
+        <div className="p-3 border-b border-gray-800 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2">
+            <MessageSquare size={16} className="text-gray-400 shrink-0" />
+            <div>
+              <h2 className="text-white font-semibold text-sm">
+                {selectedChannel === 'general' ? '# general' : `# ${selectedChannel}`}
+              </h2>
+              <p className="text-gray-500 text-[10px]">
+                {selectedChannel === 'general'
+                  ? 'Canal general'
+                  : `${agents.find(a => a.id === selectedChannel)?.name || selectedChannel}`}
+              </p>
+            </div>
           </div>
           <button
             onClick={handleRefresh}
-            className="text-gray-400 hover:text-white text-sm px-3 py-1 rounded-lg hover:bg-gray-800"
+            className="text-gray-400 hover:text-white text-xs px-2 py-1 rounded-lg hover:bg-gray-800 inline-flex items-center gap-1"
           >
-            Actualizar
+            <RefreshCw size={12} /> Actualizar
           </button>
         </div>
 
         {/* Mensajes */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 overflow-y-auto p-3 space-y-3" onScroll={handleScroll}>
           {messages.length === 0 ? (
-            <div className="text-center text-gray-500 mt-20">
-              <p className="text-lg mb-2">No hay mensajes aún</p>
-              <p className="text-sm">Envía un mensaje para comenzar la conversación</p>
+            <div className="text-center text-gray-500 mt-10">
+              <p className="text-sm mb-1">No hay mensajes aún</p>
+              <p className="text-xs">Envía un mensaje para comenzar</p>
             </div>
           ) : (
             messages.map(msg => (
               <div
                 key={msg.id}
-                className={`flex gap-3 ${msg.sender_role === 'admin' ? 'justify-end' : 'justify-start'}`}
+                className={`flex gap-2 ${msg.sender_role === 'admin' ? 'justify-end' : 'justify-start'}`}
               >
                 {msg.sender_role !== 'admin' && (
-                  <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                  <div className="w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center text-white text-[10px] font-bold shrink-0">
                     {msg.sender_name.charAt(0).toUpperCase()}
                   </div>
                 )}
                 <div className={`max-w-lg ${msg.sender_role === 'admin' ? 'order-first' : ''}`}>
-                  <div className="flex items-baseline gap-2 mb-1">
-                    <span className={`text-sm font-medium ${
+                  <div className="flex items-baseline gap-1.5 mb-0.5">
+                    <span className={`text-xs font-medium ${
                       msg.sender_role === 'admin' ? 'text-blue-400' : 'text-white'
                     }`}>
                       {msg.sender_name}
                     </span>
-                    <span className="text-xs text-gray-600">{formatTime(msg.created_at)}</span>
+                    <span className="text-[10px] text-gray-600">{formatTime(msg.created_at)}</span>
                   </div>
-                  <div className={`rounded-xl px-4 py-2 text-sm ${
+                  <div className={`rounded-lg px-3 py-1.5 text-sm ${
                     msg.sender_role === 'admin'
                       ? 'bg-blue-600/20 text-blue-100 border border-blue-800'
                       : 'bg-gray-800 text-gray-200 border border-gray-700'
@@ -291,13 +303,13 @@ export default function ChatPage() {
                     {msg.content}
                   </div>
                   {msg.message_type !== 'text' && (
-                    <span className="text-xs text-gray-600 mt-1 inline-block">
+                    <span className="text-[10px] text-gray-600 mt-0.5 inline-block">
                       [{msg.message_type}]
                     </span>
                   )}
                 </div>
                 {msg.sender_role === 'admin' && (
-                  <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                  <div className="w-7 h-7 rounded-full bg-purple-600 flex items-center justify-center text-white text-[10px] font-bold shrink-0">
                     A
                   </div>
                 )}
@@ -308,7 +320,7 @@ export default function ChatPage() {
         </div>
 
         {/* Input de mensaje */}
-        <div className="p-4 border-t border-gray-800">
+        <div className="p-3 border-t border-gray-800 shrink-0">
           <div className="flex gap-2">
             <input
               ref={inputRef}
@@ -317,14 +329,14 @@ export default function ChatPage() {
               onChange={(e) => setNewMessage(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Escribe un mensaje..."
-              className="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-blue-600"
+              className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-600 min-w-0"
             />
             <button
               onClick={sendMessage}
               disabled={!newMessage.trim()}
-              className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:text-gray-500 text-white px-6 py-3 rounded-xl text-sm font-medium transition-colors"
+              className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:text-gray-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors inline-flex items-center gap-1 shrink-0"
             >
-              Enviar
+              <Send size={14} /> Enviar
             </button>
           </div>
         </div>

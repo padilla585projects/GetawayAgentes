@@ -83,6 +83,13 @@ export interface Env {
   GATEWAY_HUB: DurableObjectNamespace
   SECRET_KEY: string
   ENVIRONMENT: string
+  // Claves de proveedores de LLM. Se configuran como secrets.
+  OPENROUTER_KEY?: string
+  GROQ_KEY?: string
+  GEMINI_KEY?: string
+  OPENAI_KEY?: string
+  DEEPSEEK_KEY?: string
+  ANTHROPIC_KEY?: string
 }
 
 // Subtarea dentro de una tarea colaborativa

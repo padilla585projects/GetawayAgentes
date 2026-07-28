@@ -36,6 +36,22 @@ No test scripts exist in either package.
 - **MCP Server** (`gateway/src/mcp/server.ts`): Model Context Protocol endpoint at `/mcp`. Exposes tools: `list_agents`, `create_task`, `list_tasks`, `search_knowledge`, `add_knowledge`, `get_network_status`. Any MCP client (Claude Desktop, Cursor) can connect.
 - **Web** (`web/`): Next.js App Router. `lib/api.ts` = typed fetch wrapper. `lib/ws.ts` = singleton `GatewaySocket`. Dashboard: Inicio, Agentes, Tareas, Conocimiento.
 
+## Model Assignment Per Agent (Jul 2026)
+
+| Agent | Model | Provider | Cost |
+|-------|-------|----------|------|
+| Finance | `gemini-2.0-flash` | Gemini (API key) | Free |
+| Construction | `deepseek:deepseek-chat` | DeepSeek | ~$0.00006/req |
+| Auto Electronics | `openrouter:google/gemma-4-26b-a4b-it:free` | OpenRouter free | Free (rate-limited) |
+| Legal | `openai:gpt-4o-mini` | OpenAI | ~$0.00005/req |
+| Project Coordinator | `anthropic:claude-3-haiku-20240307` | Anthropic | ~$0.00025/req |
+
+All non-Gemini providers fall back to Gemini if they fail (rate-limit, timeout, etc).
+
+## API Keys (encrypted backup)
+
+Backup: `powershell -Command "$s = Get-Content .secrets.enc; $ss = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($(New-Object System.Security.SecureString)); $ptr = [System.Runtime.InteropServices.Marshal]::StringToBSTR(''); try { $ptr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($([System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($ss) | ConvertTo-SecureString)); [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr) } finally { [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr); [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ss) }"` (only works on same Windows machine that encrypted it)
+
 ## Collaboration Flow
 
 1. Admin creates task with `mode: "collaborative"` (or agent uses MCP `create_task`)

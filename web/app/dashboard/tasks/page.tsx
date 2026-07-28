@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { Plus, Send, X } from 'lucide-react'
 import { api } from '@/lib/api'
 import clsx from 'clsx'
 
@@ -72,8 +73,8 @@ export default function TasksPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-white">Tareas</h2>
-        <button onClick={() => setShowForm(true)} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm">
-          + Nueva tarea
+        <button onClick={() => setShowForm(true)} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm inline-flex items-center gap-1.5">
+          <Plus size={16} /> Nueva tarea
         </button>
       </div>
 
@@ -132,7 +133,7 @@ export default function TasksPage() {
                 </div>
                 <p className="text-gray-400 text-sm mt-1">{selected.description}</p>
               </div>
-              <button onClick={() => setSelected(null)} className="text-gray-500 hover:text-white text-xl ml-4">✕</button>
+              <button onClick={() => setSelected(null)} className="text-gray-500 hover:text-white ml-4"><X size={20} /></button>
             </div>
 
             {/* Subtasks progress (for collaborative tasks) */}
@@ -185,7 +186,7 @@ export default function TasksPage() {
                 placeholder="Escribe un mensaje a los agentes..."
                 className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
               />
-              <button type="submit" className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm">Enviar</button>
+              <button type="submit" className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm inline-flex items-center gap-1.5"><Send size={16} /> Enviar</button>
             </form>
           </div>
         </div>
@@ -197,7 +198,7 @@ export default function TasksPage() {
           <form onSubmit={createTask} className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-lg space-y-4">
             <div className="flex justify-between items-center">
               <h3 className="text-white font-bold text-lg">Nueva tarea</h3>
-              <button type="button" onClick={() => setShowForm(false)} className="text-gray-500 hover:text-white text-xl">✕</button>
+              <button type="button" onClick={() => setShowForm(false)} className="text-gray-500 hover:text-white"><X size={20} /></button>
             </div>
             <div>
               <label className="text-gray-400 text-sm block mb-1">Título</label>

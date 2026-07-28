@@ -42,6 +42,8 @@ app.use('*', cors({
 // Health check
 app.get('/', c => c.json({ status: 'ok', name: 'GetawayAgentes Gateway', version: '1.0.0' }))
 
+
+
 // WebSocket — agent and admin real-time connection
 app.get('/ws', async (c) => {
   const role = c.req.query('role') || 'agent'

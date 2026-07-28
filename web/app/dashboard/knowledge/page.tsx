@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { BookOpen, Plus, Tag, Trash2, X } from 'lucide-react'
 import { api } from '@/lib/api'
 
 export default function KnowledgePage() {
@@ -32,11 +33,11 @@ export default function KnowledgePage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-white">Base de conocimiento</h2>
+          <h2 className="text-2xl font-bold text-white flex items-center gap-2"><BookOpen size={24} className="text-blue-400" /> Base de conocimiento</h2>
           <p className="text-gray-400 text-sm mt-1">Memoria compartida entre todos los agentes</p>
         </div>
-        <button onClick={() => setShowForm(true)} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm">
-          + Añadir conocimiento
+        <button onClick={() => setShowForm(true)} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm inline-flex items-center gap-1.5">
+          <Plus size={16} /> Añadir conocimiento
         </button>
       </div>
 
@@ -62,7 +63,7 @@ export default function KnowledgePage() {
               </div>
               <div className="flex items-center gap-3 ml-4 shrink-0">
                 <span className="text-xs text-gray-500">Usado {entry.times_used}x</span>
-                <button onClick={() => remove(entry.id)} className="text-gray-600 hover:text-red-400 transition-colors">✕</button>
+                <button onClick={() => remove(entry.id)} className="text-gray-600 hover:text-red-400 transition-colors"><X size={14} /></button>
               </div>
             </div>
           </div>
@@ -80,7 +81,7 @@ export default function KnowledgePage() {
           <form onSubmit={create} className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-lg space-y-4">
             <div className="flex justify-between items-center">
               <h3 className="text-white font-bold text-lg">Nuevo conocimiento</h3>
-              <button type="button" onClick={() => setShowForm(false)} className="text-gray-500 hover:text-white text-xl">✕</button>
+              <button type="button" onClick={() => setShowForm(false)} className="text-gray-500 hover:text-white"><X size={20} /></button>
             </div>
             <div>
               <label className="text-gray-400 text-sm block mb-1">Título</label>

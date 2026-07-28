@@ -1,24 +1,33 @@
 'use client'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import { api } from '@/lib/api'
 import clsx from 'clsx'
+import { Home, Bot, ClipboardList, BookOpen, MessageSquare, Lightbulb, LogOut, PanelLeft, Gauge } from 'lucide-react'
 
 const nav = [
-  { href: '/dashboard', label: 'Inicio', icon: '◈' },
-  { href: '/dashboard/agents', label: 'Agentes', icon: '◉' },
-  { href: '/dashboard/tasks', label: 'Tareas', icon: '◎' },
-  { href: '/dashboard/knowledge', label: 'Conocimiento', icon: '◇' },
-  { href: '/dashboard/chat', label: 'Chat', icon: '💬' },
-  { href: '/dashboard/improvements', label: 'Mejoras', icon: '💡' },
+  { href: '/dashboard', label: 'Inicio', icon: Gauge },
+  { href: '/dashboard/agents', label: 'Agentes', icon: Bot },
+  { href: '/dashboard/tasks', label: 'Tareas', icon: ClipboardList },
+  { href: '/dashboard/knowledge', label: 'Conocimiento', icon: BookOpen },
+  { href: '/dashboard/chat', label: 'Chat', icon: MessageSquare },
+  { href: '/dashboard/improvements', label: 'Mejoras', icon: Lightbulb },
 ]
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
+  const [collapsed, setCollapsed] = useState(false)
+  const [onlineCount, setOnlineCount] = useState(0)
 
   useEffect(() => {
     if (!localStorage.getItem('admin_token')) router.push('/')
+    const iv = setInterval(() => {
+      api.getAgents().then(a => setOnlineCount(a.filter((x: any) => x.is_online || x.status === 'idle' || x.status === 'working').length)).catch(() => {})
+    }, 10000)
+    api.getAgents().then(a => setOnlineCount(a.filter((x: any) => x.is_online || x.status === 'idle' || x.status === 'working').length)).catch(() => {})
+    return () => clearInterval(iv)
   }, [router])
 
   function logout() {
@@ -29,40 +38,63 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex h-screen bg-gray-950 overflow-hidden">
-      {/* Sidebar */}
-      <aside className="w-56 bg-gray-900 border-r border-gray-800 flex flex-col">
-        <div className="p-5 border-b border-gray-800">
-          <h1 className="font-bold text-white text-lg">GetawayAgentes</h1>
-          <p className="text-xs text-gray-500 mt-0.5">Panel de control</p>
+      <aside className={clsx(
+        'bg-gray-900 border-r border-gray-800 flex flex-col transition-all duration-200',
+        collapsed ? 'w-16' : 'w-56'
+      )}>
+        <div className={clsx('p-4 border-b border-gray-800 flex items-center', collapsed ? 'justify-center' : 'justify-between')}>
+          {!collapsed && (
+            <div>
+              <h1 className="font-bold text-white text-sm leading-tight">Getaway</h1>
+              <p className="text-[10px] text-gray-500">Panel de control</p>
+            </div>
+          )}
+          <button onClick={() => setCollapsed(!collapsed)} className="text-gray-500 hover:text-white p-1 rounded-lg hover:bg-gray-800">
+            <PanelLeft size={16} />
+          </button>
         </div>
-        <nav className="flex-1 p-3 space-y-1">
-          {nav.map(item => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={clsx(
-                'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors',
-                pathname === item.href
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-400 hover:text-white hover:bg-gray-800'
-              )}
-            >
-              <span className="text-base">{item.icon}</span>
-              {item.label}
-            </Link>
-          ))}
+        <nav className="flex-1 p-2 space-y-0.5">
+          {nav.map(item => {
+            const Icon = item.icon
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={clsx(
+                  'flex items-center gap-3 rounded-lg text-sm transition-colors',
+                  collapsed ? 'justify-center p-2' : 'px-3 py-2',
+                  pathname === item.href
+                    ? 'bg-blue-600/20 text-blue-400'
+                    : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                )}
+                title={collapsed ? item.label : undefined}
+              >
+                <Icon size={18} />
+                {!collapsed && item.label}
+              </Link>
+            )
+          })}
         </nav>
-        <div className="p-3 border-t border-gray-800">
+        <div className={clsx('p-2 border-t border-gray-800', collapsed ? 'text-center' : '')}>
+          {!collapsed && (
+            <div className="px-3 py-1.5 text-xs text-gray-500 flex items-center gap-2 mb-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-400 inline-block" />
+              {onlineCount} online
+            </div>
+          )}
           <button
             onClick={logout}
-            className="w-full text-left text-sm text-gray-500 hover:text-white px-3 py-2 rounded-lg hover:bg-gray-800 transition-colors"
+            className={clsx(
+              'w-full text-gray-500 hover:text-white rounded-lg hover:bg-gray-800 transition-colors flex items-center gap-3',
+              collapsed ? 'justify-center p-2' : 'px-3 py-2 text-sm'
+            )}
+            title="Cerrar sesión"
           >
-            Cerrar sesión
+            <LogOut size={16} />
+            {!collapsed && 'Cerrar sesión'}
           </button>
         </div>
       </aside>
-
-      {/* Contenido */}
       <main className="flex-1 overflow-auto p-6">
         {children}
       </main>

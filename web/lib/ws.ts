@@ -13,7 +13,9 @@ class GatewaySocket {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
 
   connect(token: string) {
-    const url = `${process.env.NEXT_PUBLIC_WS_URL}?role=admin&token=${token}`
+    const base = process.env.NEXT_PUBLIC_WS_URL || 'wss://getaway-gateway.alejandra-app.workers.dev'
+    const wsUrl = base.replace(/\/+$/, '') + (base.includes('/ws') ? '' : '/ws')
+    const url = `${wsUrl}?role=admin&token=${token}`
     this.ws = new WebSocket(url)
 
     this.ws.onmessage = (e) => {
