@@ -13,9 +13,10 @@ class GatewaySocket {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
 
   connect(token: string) {
-    const base = process.env.NEXT_PUBLIC_WS_URL || 'wss://getaway-gateway.alejandra-app.workers.dev'
-    const wsUrl = base.replace(/\/+$/, '') + (base.includes('/ws') ? '' : '/ws')
-    const url = `${wsUrl}?role=admin&token=${token}`
+    let base = process.env.NEXT_PUBLIC_WS_URL || 'wss://getaway-gateway.alejandra-app.workers.dev'
+    base = base.replace(/\/+$/, '')
+    if (!base.endsWith('/ws')) base += '/ws'
+    const url = `${base}?role=admin&token=${encodeURIComponent(token)}`
     this.ws = new WebSocket(url)
 
     this.ws.onmessage = (e) => {
@@ -26,6 +27,10 @@ class GatewaySocket {
         const allListeners = this.handlers.get('*') || []
         allListeners.forEach(fn => fn(msg))
       } catch {}
+    }
+
+    this.ws.onerror = () => {
+      console.error('[WS] Connection error')
     }
 
     this.ws.onclose = () => {

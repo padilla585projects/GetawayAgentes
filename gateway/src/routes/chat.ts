@@ -183,21 +183,21 @@ chat.post('/', async (c) => {
       const directTarget = targetAgentId || (findBuiltinAgent(channel) ? channel : null)
       if (directTarget) {
         const agent = findBuiltinAgent(directTarget)
-        if (agent) await respondAsBuiltin(c.env, agent, content, channel, true)
+        if (agent) {
+          try { await respondAsBuiltin(c.env, agent, content, channel, true) } catch (e: any) { console.error('[chat] direct agent error:', e) }
+        }
       } else if (channel === 'general') {
-        // Broadcast: responden los agentes cuyo dominio coincide con el mensaje
-        // (filtro rápido por palabras clave; la respuesta real la genera la IA).
         let answered = 0
         for (const agent of BUILTIN_AGENTS) {
           if (agent.keywordReply(content)) {
-            await respondAsBuiltin(c.env, agent, content, 'general', false)
-            answered++
+            try { await respondAsBuiltin(c.env, agent, content, 'general', false); answered++ } catch (e: any) { console.error('[chat] builtin agent error:', e) }
           }
         }
-        // Si nadie tuvo match, responde el coordinador como orientador.
         if (answered === 0) {
           const coordinator = findBuiltinAgent('builtin-project-coordinator')
-          if (coordinator) await respondAsBuiltin(c.env, coordinator, content, 'general', true)
+          if (coordinator) {
+            try { await respondAsBuiltin(c.env, coordinator, content, 'general', true) } catch (e: any) { console.error('[chat] coordinator error:', e) }
+          }
         }
       }
     }

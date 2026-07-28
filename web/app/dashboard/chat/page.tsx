@@ -131,8 +131,12 @@ export default function ChatPage() {
       })
       setNewMessage('')
       inputRef.current?.focus()
+      // Refetch messages in case WS is not connected
+      const msgs = await api.getChatMessages(selectedChannel)
+      setMessages(msgs)
     } catch (e) {
       console.error('Error sending message:', e)
+      alert('Error al enviar el mensaje. Revisa la consola para más detalles.')
     }
   }
 
