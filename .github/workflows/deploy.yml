@@ -30,42 +30,42 @@ jobs:
       - name: Set LLM secrets (OpenRouter)
         if: ${{ secrets.OPENROUTER_KEY != '' }}
         run: echo "${{ secrets.OPENROUTER_KEY }}" | npx wrangler secret put OPENROUTER_KEY
-        workingDirectory: gateway
+        working-directory: gateway
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
       - name: Set LLM secrets (Groq)
         if: ${{ secrets.GROQ_KEY != '' }}
         run: echo "${{ secrets.GROQ_KEY }}" | npx wrangler secret put GROQ_KEY
-        workingDirectory: gateway
+        working-directory: gateway
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
       - name: Set LLM secrets (Gemini)
         if: ${{ secrets.GEMINI_KEY != '' }}
         run: echo "${{ secrets.GEMINI_KEY }}" | npx wrangler secret put GEMINI_KEY
-        workingDirectory: gateway
+        working-directory: gateway
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
       - name: Set LLM secrets (OpenAI)
         if: ${{ secrets.OPENAI_KEY != '' }}
         run: echo "${{ secrets.OPENAI_KEY }}" | npx wrangler secret put OPENAI_KEY
-        workingDirectory: gateway
+        working-directory: gateway
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
       - name: Set LLM secrets (DeepSeek)
         if: ${{ secrets.DEEPSEEK_KEY != '' }}
         run: echo "${{ secrets.DEEPSEEK_KEY }}" | npx wrangler secret put DEEPSEEK_KEY
-        workingDirectory: gateway
+        working-directory: gateway
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
       - name: Set LLM secrets (Anthropic)
         if: ${{ secrets.ANTHROPIC_KEY != '' }}
         run: echo "${{ secrets.ANTHROPIC_KEY }}" | npx wrangler secret put ANTHROPIC_KEY
-        workingDirectory: gateway
+        working-directory: gateway
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
@@ -91,7 +91,7 @@ jobs:
 
       - name: Deploy web to Cloudflare Workers
         run: npx opennextjs-cloudflare build && npx opennextjs-cloudflare deploy
-        workingDirectory: web
+        working-directory: web
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           NEXT_PUBLIC_GATEWAY_URL: https://getaway-gateway.alejandra-app.workers.dev
