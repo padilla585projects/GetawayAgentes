@@ -137,6 +137,8 @@ export type WsMessageType =
   | 'chat_message'
   | 'learning_task'
   | 'improvement_proposal'
+  | 'shutdown'
+  | 'maintenance'
 
 export interface WsMessage {
   type: WsMessageType

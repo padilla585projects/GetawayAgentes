@@ -1,7 +1,8 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Bot, Shield, Wifi, WifiOff, Check, X, Eye, Star } from 'lucide-react'
 import { api } from '@/lib/api'
+import { useAgents } from '@/lib/use-agents'
 import clsx from 'clsx'
 
 const STATUS_COLOR: Record<string, string> = {
@@ -25,17 +26,9 @@ const STATUS_LABEL: Record<string, string> = {
 const TRUST_OPTIONS = ['viewer', 'contributor', 'trusted']
 
 export default function AgentsPage() {
-  const [agents, setAgents] = useState<any[]>([])
+  const { agents, reload: load } = useAgents()
   const [selected, setSelected] = useState<any | null>(null)
   const [loading, setLoading] = useState(false)
-
-  const load = () => api.getAgents().then(setAgents).catch(() => {})
-
-  useEffect(() => {
-    load()
-    const iv = setInterval(load, 5000)
-    return () => clearInterval(iv)
-  }, [])
 
   async function approve(id: string, trust: string) {
     setLoading(true)

@@ -1,19 +1,52 @@
 import { WsMessage, Subtask } from '../models/types'
 
-interface Session {
-  socket: WebSocket
+// Metadatos que viajan adjuntos al socket (`serializeAttachment`), no en memoria.
+// Con la API de hibernación el Durable Object se descarga entre mensajes, así que
+// cualquier Map en memoria se pierde. El adjunto sobrevive a la hibernación.
+interface SessionMeta {
   id: string
   name: string
   role: 'agent' | 'admin'
   capabilities?: string[]
 }
 
+interface Session extends SessionMeta {
+  socket: WebSocket
+}
+
+const tagRole = (role: string) => `role:${role}`
+const tagId = (id: string) => `id:${id}`
+
 export class GatewayHub {
-  private sessions: Map<string, Session> = new Map()
   private state: DurableObjectState
 
   constructor(state: DurableObjectState) {
     this.state = state
+  }
+
+  // ─── Acceso a sesiones (reconstruido desde el runtime, no desde memoria) ───
+
+  private sessionOf(socket: WebSocket): Session | null {
+    try {
+      const meta = socket.deserializeAttachment() as SessionMeta | null
+      return meta ? { socket, ...meta } : null
+    } catch {
+      return null
+    }
+  }
+
+  private sessions(tag?: string): Session[] {
+    const sockets = tag ? this.state.getWebSockets(tag) : this.state.getWebSockets()
+    const out: Session[] = []
+    for (const socket of sockets) {
+      const session = this.sessionOf(socket)
+      if (session) out.push(session)
+    }
+    return out
+  }
+
+  private sessionById(id: string): Session | null {
+    return this.sessions(tagId(id))[0] ?? null
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -50,6 +83,25 @@ export class GatewayHub {
         return new Response(JSON.stringify(agents), { headers: { 'Content-Type': 'application/json' } })
       }
 
+      // POST /internal/shutdown — kill switch: avisa a agentes y admins, y
+      // cierra las conexiones de agentes con un código propio (4000) para que
+      // no lo traten como una caída de red y no lo reintenten con backoff corto.
+      if (path === '/internal/shutdown' && request.method === 'POST') {
+        for (const session of this.sessions(tagRole('agent'))) {
+          this.send(session.socket, { type: 'shutdown', reason: 'maintenance' })
+          try { session.socket.close(4000, 'maintenance') } catch {}
+        }
+        this.broadcastToAdmins({ type: 'maintenance', enabled: true })
+        return new Response('ok')
+      }
+
+      // POST /internal/resume — avisa a los admins conectados de que el
+      // mantenimiento terminó (los agentes reconectan solos con su backoff).
+      if (path === '/internal/resume' && request.method === 'POST') {
+        this.broadcastToAdmins({ type: 'maintenance', enabled: false })
+        return new Response('ok')
+      }
+
       // POST /internal/orchestrate — dispatch collaborative task
       if (path === '/internal/orchestrate' && request.method === 'POST') {
         const { task, subtasks } = await request.json() as { task: { id: string; title: string; description: string; priority: number; context: Record<string, unknown> }; subtasks: Subtask[] }
@@ -72,7 +124,7 @@ export class GatewayHub {
       // POST /internal/broadcast-message — broadcast arbitrary message to all connected sessions
       if (path === '/internal/broadcast-message' && request.method === 'POST') {
         const body = await request.json() as WsMessage
-        for (const session of this.sessions.values()) {
+        for (const session of this.sessions()) {
           this.send(session.socket, body)
         }
         return new Response('ok')
@@ -85,44 +137,66 @@ export class GatewayHub {
     const role = url.searchParams.get('role') as 'agent' | 'admin' || 'agent'
     const sessionId = url.searchParams.get('session_id') || crypto.randomUUID()
 
+    // Una sesión = una conexión. Si el cliente reconecta sin haber cerrado la
+    // anterior (pestaña duplicada, reconexión tras hibernación), cerramos la
+    // vieja en lugar de acumular sockets abiertos contra el mismo id.
+    for (const stale of this.state.getWebSockets(tagId(sessionId))) {
+      try { stale.close(1000, 'Reemplazada por una conexión nueva') } catch {}
+    }
+
     const { 0: client, 1: server } = new WebSocketPair()
-    this.state.acceptWebSocket(server)
+    this.state.acceptWebSocket(server, [tagRole(role), tagId(sessionId)])
 
     const capabilitiesRaw = url.searchParams.get('capabilities')
     const capabilities = capabilitiesRaw ? JSON.parse(capabilitiesRaw) : []
 
-    const session: Session = {
-      socket: server,
+    const meta: SessionMeta = {
       id: sessionId,
       name: url.searchParams.get('name') || 'Desconocido',
       role,
       capabilities,
     }
-    this.sessions.set(sessionId, session)
-
-    server.addEventListener('message', async (event) => {
-      try {
-        const msg: WsMessage = JSON.parse(event.data as string)
-        await this.handleMessage(session, msg)
-      } catch {}
-    })
-
-    server.addEventListener('close', () => {
-      this.sessions.delete(sessionId)
-      if (role === 'agent') {
-        this.broadcastToAdmins({ type: 'agent_offline', agent_id: sessionId, name: session.name })
-      }
-    })
+    server.serializeAttachment(meta)
 
     // Notify admins of new connection
     if (role === 'agent') {
-      this.broadcastToAdmins({ type: 'agent_online', agent_id: sessionId, name: session.name, capabilities: session.capabilities })
+      this.broadcastToAdmins({ type: 'agent_online', agent_id: sessionId, name: meta.name, capabilities: meta.capabilities })
     } else {
       // Send current agents list to newly connected admin
       this.send(server, { type: 'agents_list', agents: this.getOnlineAgentsInfo() })
     }
 
     return new Response(null, { status: 101, webSocket: client })
+  }
+
+  // ─── Handlers de hibernación ───
+  // Obligatorios al usar `acceptWebSocket`: el runtime los invoca tras despertar
+  // el objeto. Con `addEventListener` los mensajes se perdían al hibernar y el
+  // cliente veía la conexión muerta, provocando reconexiones en bucle.
+
+  async webSocketMessage(socket: WebSocket, message: string | ArrayBuffer) {
+    const session = this.sessionOf(socket)
+    if (!session) return
+    try {
+      const raw = typeof message === 'string' ? message : new TextDecoder().decode(message)
+      await this.handleMessage(session, JSON.parse(raw) as WsMessage)
+    } catch {}
+  }
+
+  async webSocketClose(socket: WebSocket, code: number, reason: string) {
+    const session = this.sessionOf(socket)
+    // 1006 (cierre anómalo) no es un código válido para devolver al peer.
+    try { socket.close(code === 1006 ? 1000 : code, reason) } catch {}
+    if (session?.role === 'agent') {
+      this.broadcastToAdmins({ type: 'agent_offline', agent_id: session.id, name: session.name })
+    }
+  }
+
+  async webSocketError(socket: WebSocket) {
+    const session = this.sessionOf(socket)
+    if (session?.role === 'agent') {
+      this.broadcastToAdmins({ type: 'agent_offline', agent_id: session.id, name: session.name })
+    }
   }
 
   // ─── WebSocket message handler ───
@@ -149,8 +223,8 @@ export class GatewayHub {
 
         if (targetId === 'all') {
           // Broadcast to all agents except sender
-          for (const s of this.sessions.values()) {
-            if (s.role === 'agent' && s.id !== session.id) {
+          for (const s of this.sessions(tagRole('agent'))) {
+            if (s.id !== session.id) {
               this.send(s.socket, {
                 type: 'agent_message',
                 from: session.id,
@@ -163,7 +237,7 @@ export class GatewayHub {
           }
         } else if (targetId) {
           // Point-to-point
-          const target = this.sessions.get(targetId)
+          const target = this.sessionById(targetId)
           if (target) {
             this.send(target.socket, {
               type: 'agent_message',
@@ -213,7 +287,7 @@ export class GatewayHub {
       case 'knowledge_response':
         // Agent responds with knowledge → forward to requester or broadcast
         if (msg.requester_id) {
-          const requester = this.sessions.get(msg.requester_id as string)
+          const requester = this.sessionById(msg.requester_id as string)
           if (requester) {
             this.send(requester.socket, {
               type: 'knowledge_response',
@@ -335,7 +409,7 @@ export class GatewayHub {
     const rejected: string[] = []
 
     for (const subtask of subtasks) {
-      const session = this.sessions.get(subtask.agent_id)
+      const session = this.sessionById(subtask.agent_id)
       if (session && session.role === 'agent') {
         this.send(session.socket, {
           type: 'subtask_assigned',
@@ -367,8 +441,8 @@ export class GatewayHub {
 
   // ─── Helper: notify all agents working on the same task ───
   private notifyTaskAgents(taskId: string, excludeId: string, msg: WsMessage) {
-    for (const session of this.sessions.values()) {
-      if (session.role === 'agent' && session.id !== excludeId) {
+    for (const session of this.sessions(tagRole('agent'))) {
+      if (session.id !== excludeId) {
         this.send(session.socket, msg)
       }
     }
@@ -377,26 +451,28 @@ export class GatewayHub {
   // ─── Public methods (called internally) ───
 
   sendToAgent(agentId: string, msg: WsMessage) {
-    const session = this.sessions.get(agentId)
+    const session = this.sessionById(agentId)
     if (session) this.send(session.socket, msg)
   }
 
   broadcastToAgents(msg: WsMessage) {
-    for (const session of this.sessions.values()) {
-      if (session.role === 'agent') this.send(session.socket, msg)
+    for (const session of this.sessions(tagRole('agent'))) {
+      this.send(session.socket, msg)
     }
   }
 
   broadcastToAdmins(msg: WsMessage) {
-    for (const session of this.sessions.values()) {
-      if (session.role === 'admin') this.send(session.socket, msg)
+    for (const session of this.sessions(tagRole('admin'))) {
+      this.send(session.socket, msg)
     }
   }
 
   getOnlineAgentsInfo(): Array<{ id: string; name: string; capabilities: string[] }> {
-    return [...this.sessions.values()]
-      .filter(s => s.role === 'agent')
-      .map(s => ({ id: s.id, name: s.name, capabilities: s.capabilities || [] }))
+    const byId = new Map<string, { id: string; name: string; capabilities: string[] }>()
+    for (const s of this.sessions(tagRole('agent'))) {
+      byId.set(s.id, { id: s.id, name: s.name, capabilities: s.capabilities || [] })
+    }
+    return [...byId.values()]
   }
 
   onlineAgents(): string[] {

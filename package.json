@@ -11,7 +11,8 @@
     "dev": "node start.js",
     "setup": "cd gateway && npm run db:migrate",
     "type-check": "cd gateway && npm run type-check",
-    "lint": "cd web && npm run lint"
+    "lint": "cd web && npm run lint",
+    "killswitch": "node killswitch.js"
   },
   "keywords": ["ai", "agents", "network", "collaboration"],
   "license": "MIT"

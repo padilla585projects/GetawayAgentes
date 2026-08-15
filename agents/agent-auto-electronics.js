@@ -550,6 +550,8 @@ class AutoElectronicsAgent {
     this.token = null
     this.ws = null
     this.registrationCheckInterval = null
+    this.reconnectTimer = null
+    this.reconnectDelay = 3000
   }
 
   request(method, path, body = null) {
@@ -661,12 +663,24 @@ class AutoElectronicsAgent {
 
   async waitForApproval() {
     return new Promise((resolve) => {
-      this.registrationCheckInterval = setInterval(async () => {
+      // Backoff progresivo: un agente puede tardar días en ser aprobado, y
+      // sondear cada 5 s indefinidamente suponía ~17.000 peticiones al gateway
+      // por agente y día. Empezamos en 5 s y crecemos hasta un techo de 5 min.
+      let delay = 5000
+      const check = async () => {
         try {
           const { status, data } = await this.request('GET', `/agents/${this.id}`)
-          if (status === 200 && data.token) { clearInterval(this.registrationCheckInterval); this.token = data.token; console.log(`[${this.name}] ¡Aprobado!`); resolve() }
+          if (status === 200 && data.token) {
+            this.token = data.token
+            console.log(`[${this.name}] ¡Aprobado!`)
+            resolve()
+            return
+          }
         } catch {}
-      }, 5000)
+        delay = Math.min(delay * 2, 300000)
+        this.registrationCheckInterval = setTimeout(check, delay)
+      }
+      this.registrationCheckInterval = setTimeout(check, delay)
     })
   }
 
@@ -674,9 +688,23 @@ class AutoElectronicsAgent {
     return new Promise((resolve, reject) => {
       const wsUrl = this.gatewayUrl.replace(/^http/, 'ws') + `/ws?role=agent&token=${encodeURIComponent(this.token)}`
       this.ws = new WebSocket(wsUrl)
-      this.ws.on('open', () => { console.log(`[${this.name}] Conectado`); resolve() })
+      this.ws.on('open', () => { this.reconnectDelay = 3000; console.log(`[${this.name}] Conectado`); resolve() })
       this.ws.on('message', (d) => { try { this.handleMessage(JSON.parse(d)) } catch {} })
-      this.ws.on('close', () => { console.log(`[${this.name}] Desconectado. Reconectando...`); setTimeout(() => this.connect().catch(console.error), 3000) })
+      this.ws.on('close', (code) => {
+        // 4000 = el gateway está en modo mantenimiento (kill switch). No tiene
+        // sentido escalar el backoff: esperamos fijo 5 min hasta que reactiven.
+        if (code === 4000) {
+          console.log(`[${this.name}] Gateway en mantenimiento. Reintentando en 5min...`)
+          this.reconnectTimer = setTimeout(() => this.connect().catch(console.error), 300000)
+          return
+        }
+        // Backoff con techo: si el gateway está caído o el token ya no vale,
+        // reintentar cada 3 s eternamente satura el worker sin llegar a conectar.
+        const wait = this.reconnectDelay || 3000
+        this.reconnectDelay = Math.min(wait * 2, 300000)
+        console.log(`[${this.name}] Desconectado. Reconectando en ${Math.round(wait / 1000)}s...`)
+        this.reconnectTimer = setTimeout(() => this.connect().catch(console.error), wait)
+      })
       this.ws.on('error', reject)
     })
   }
@@ -684,6 +712,7 @@ class AutoElectronicsAgent {
   handleMessage(msg) {
     switch (msg.type) {
       case 'heartbeat': this.send({ type: 'heartbeat_ack' }); break
+      case 'shutdown': console.log(`[${this.name}] El gateway entra en mantenimiento, desconectando...`); break
       case 'task_assigned': this.processTask(msg); break
       case 'subtask_assigned': this.processSubtask(msg); break
       case 'agent_message': this.handleChatMessage(msg); break
@@ -909,7 +938,7 @@ const agent = new AutoElectronicsAgent(GATEWAY_URL)
 agent.run()
 process.on('SIGINT', () => {
   console.log(`\n[${AGENT_NAME}] Desconectando...`)
-  if (agent.registrationCheckInterval) clearInterval(agent.registrationCheckInterval)
+  if (agent.registrationCheckInterval) clearTimeout(agent.registrationCheckInterval); if (agent.reconnectTimer) clearTimeout(agent.reconnectTimer)
   if (agent.ws) agent.ws.close()
   process.exit(0)
 })

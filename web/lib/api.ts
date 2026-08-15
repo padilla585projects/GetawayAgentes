@@ -85,4 +85,9 @@ export const api = {
     if (status) params.set('status', status)
     return req<LearningTask[]>(`/improvements/learning?${params}`)
   },
+
+  // Admin / kill switch
+  getMaintenanceStatus: () => req<{ maintenance: boolean }>('/admin/status'),
+  setMaintenance: (enabled: boolean) =>
+    req<{ maintenance: boolean }>('/admin/maintenance', { method: 'POST', body: JSON.stringify({ enabled }) }),
 }

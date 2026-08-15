@@ -6,23 +6,19 @@ import tasks from './routes/tasks'
 import knowledge from './routes/knowledge'
 import chat from './routes/chat'
 import improvements from './routes/improvements'
+import admin from './routes/admin'
 import { verifyToken } from './services/auth'
 import { handleMcpRequest } from './mcp/server'
 import { ensureSchema } from './services/schema'
 import { ensureBuiltinAgents } from './agents/builtin'
+import { isMaintenanceOn, isAllowedDuringMaintenance } from './services/maintenance'
 
 export { GatewayHub } from './durable/GatewayHub'
 
 const app = new Hono<{ Bindings: Env }>()
 
-// Asegura el esquema de base de datos y los agentes built-in al iniciar
-app.use('*', async (c, next) => {
-  await ensureSchema(c.env.DB)
-  await ensureBuiltinAgents(c.env.DB)
-  await next()
-})
-
-// CORS — permite peticiones desde la web app y la app móvil.
+// CORS primero: los preflight OPTIONS los responde este middleware sin llamar
+// a next(), así que si va antes evita tocar D1 solo para contestar un preflight.
 // Hono hace coincidencia exacta en arrays, así que usamos una función
 // para aceptar cualquier subdominio *.pages.dev y *.workers.dev.
 app.use('*', cors({
@@ -38,6 +34,28 @@ app.use('*', cors({
   allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
 }))
+
+// Kill switch: en modo mantenimiento, corta la petición aquí mismo — antes de
+// tocar D1 (ensureSchema) o el Durable Object (WebSocket) — para minimizar el
+// tráfico hacia Cloudflare cuando algo se ha descontrolado. Solo se lee KV.
+app.use('*', async (c, next) => {
+  const path = new URL(c.req.url).pathname
+  if (isAllowedDuringMaintenance(path)) return next()
+  if (await isMaintenanceOn(c.env)) {
+    return c.json({ error: 'El sistema está en modo mantenimiento', maintenance: true }, 503)
+  }
+  return next()
+})
+
+// Asegura el esquema de base de datos y los agentes built-in al iniciar.
+// ensureSchema/ensureBuiltinAgents memoizan la promesa por isolate, así que en
+// caliente esto es un `await` sin I/O — el coste real de las 23 sentencias D1
+// solo se paga una vez por isolate nuevo.
+app.use('*', async (c, next) => {
+  await ensureSchema(c.env.DB)
+  await ensureBuiltinAgents(c.env.DB)
+  await next()
+})
 
 // Health check
 app.get('/', c => c.json({ status: 'ok', name: 'GetawayAgentes Gateway', version: '1.0.0' }))
@@ -81,6 +99,7 @@ app.route('/tasks', tasks)
 app.route('/knowledge', knowledge)
 app.route('/chat', chat)
 app.route('/improvements', improvements)
+app.route('/admin', admin)
 
 // Admin login
 app.post('/auth/login', async (c) => {

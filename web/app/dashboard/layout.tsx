@@ -2,9 +2,10 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { api } from '@/lib/api'
+import { useAgents } from '@/lib/use-agents'
+import { useMaintenance } from '@/lib/use-maintenance'
 import clsx from 'clsx'
-import { Home, Bot, ClipboardList, BookOpen, MessageSquare, Lightbulb, LogOut, PanelLeft, Gauge } from 'lucide-react'
+import { Home, Bot, ClipboardList, BookOpen, MessageSquare, Lightbulb, LogOut, PanelLeft, Gauge, Power } from 'lucide-react'
 
 const nav = [
   { href: '/dashboard', label: 'Inicio', icon: Gauge },
@@ -19,16 +20,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname()
   const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
-  const [onlineCount, setOnlineCount] = useState(0)
+  const { agents } = useAgents()
+  const { maintenance, toggle: toggleMaintenance } = useMaintenance()
+
+  const onlineCount = agents.filter(a => a.is_online || a.status === 'idle' || a.status === 'working').length
 
   useEffect(() => {
     if (!localStorage.getItem('admin_token')) router.push('/')
-    const iv = setInterval(() => {
-      api.getAgents().then(a => setOnlineCount(a.filter((x: any) => x.is_online || x.status === 'idle' || x.status === 'working').length)).catch(() => {})
-    }, 10000)
-    api.getAgents().then(a => setOnlineCount(a.filter((x: any) => x.is_online || x.status === 'idle' || x.status === 'working').length)).catch(() => {})
-    return () => clearInterval(iv)
   }, [router])
+
+  function handleKillSwitch() {
+    const question = maintenance
+      ? '¿Reactivar el sistema? Los agentes y el panel volverán a conectar.'
+      : 'Esto desconecta a todos los agentes y bloquea la API y el WebSocket del gateway hasta que lo reactives. ¿Apagar el sistema?'
+    if (window.confirm(question)) toggleMaintenance()
+  }
 
   function logout() {
     localStorage.removeItem('admin_token')
@@ -78,10 +84,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className={clsx('p-2 border-t border-gray-800', collapsed ? 'text-center' : '')}>
           {!collapsed && (
             <div className="px-3 py-1.5 text-xs text-gray-500 flex items-center gap-2 mb-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-400 inline-block" />
-              {onlineCount} online
+              <span className={clsx('w-1.5 h-1.5 rounded-full inline-block', maintenance ? 'bg-gray-600' : 'bg-green-400')} />
+              {maintenance ? 'Sistema apagado' : `${onlineCount} online`}
             </div>
           )}
+          <button
+            onClick={handleKillSwitch}
+            disabled={maintenance === null}
+            className={clsx(
+              'w-full rounded-lg transition-colors flex items-center gap-3 disabled:opacity-50',
+              collapsed ? 'justify-center p-2' : 'px-3 py-2 text-sm',
+              maintenance
+                ? 'text-red-400 bg-red-950/60 hover:bg-red-950 border border-red-900'
+                : 'text-gray-500 hover:text-red-400 hover:bg-gray-800'
+            )}
+            title={maintenance ? 'Reactivar el sistema' : 'Apagar el sistema (kill switch)'}
+          >
+            <Power size={16} />
+            {!collapsed && (maintenance ? 'Reactivar sistema' : 'Apagar sistema')}
+          </button>
           <button
             onClick={logout}
             className={clsx(
@@ -96,6 +117,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       </aside>
       <main className="flex-1 overflow-auto p-6">
+        {maintenance && (
+          <div className="mb-4 px-4 py-2.5 rounded-lg bg-red-950/60 border border-red-900 text-red-300 text-sm flex items-center gap-2">
+            <Power size={16} />
+            Sistema en modo mantenimiento: la API y los agentes están desconectados.
+          </div>
+        )}
         {children}
       </main>
     </div>
