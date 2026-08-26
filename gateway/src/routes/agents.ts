@@ -10,8 +10,20 @@ const agents = new Hono<{ Bindings: Env }>()
 agents.post('/register', async (c) => {
   const body = await c.req.json()
 
-  // Check if agent with same name already exists
+  // Check if agent with same name already exists.
+  // Los agentes builtin nunca se ceden aquí, aunque el nombre coincida: viven
+  // dentro del propio Worker y son siempre 'trusted', así que si un proceso
+  // externo pudiera reclamarlos por nombre heredaría su id y su token de
+  // agente de confianza. Los 5 agentes externos del repo compartían nombre
+  // literal con los builtin por motivos históricos (ver agents/agent-*.js) —
+  // ya se renombraron, pero esta comprobación es la que realmente lo impide.
   const existing = await c.env.DB.prepare('SELECT * FROM agents WHERE name = ?').bind(body.name).first() as Record<string, unknown> | null
+  if (existing && BUILTIN_AGENT_IDS.has(existing.id as string)) {
+    // `name` es UNIQUE en la tabla, así que ni siquiera podríamos crear una
+    // fila nueva con este nombre — se lo decimos claro al caller en vez de
+    // dejar que el INSERT de abajo falle con un error de SQL genérico.
+    return c.json({ error: `El nombre "${body.name}" ya lo usa un agente builtin del sistema. Elige otro nombre para el agente externo.` }, 409)
+  }
   if (existing) {
     // If already approved, re-sign token with current SECRET_KEY in case it changed
     if (existing.status === 'idle') {

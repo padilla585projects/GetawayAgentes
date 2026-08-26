@@ -12,33 +12,38 @@ const path = require('path')
 
 const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:8787'
 
+// Los nombres deben coincidir exactamente con AGENT_NAME en cada agent-*.js:
+// este script pre-registra por HTTP antes de arrancar el proceso, y si el
+// nombre no coincide, esa pre-registro crea una fila huérfana bajo el nombre
+// viejo (que además vuelve a chocar con el agente builtin homónimo) en vez de
+// reutilizarse cuando el proceso hijo se registre a su vez.
 const AGENTS = [
   {
-    name: 'Auto Electronics Expert',
+    name: 'Auto Electronics Expert (Externo)',
     file: 'agent-auto-electronics.js',
     description: 'Experto en electrónica automotriz, diagnóstico OBD-II, ECUs, sensores, cableado y protocolos de comunicación vehicular.',
     capabilities: ['obd2_diagnostics', 'ecu_programming', 'sensor_analysis', 'wiring_diagnosis', 'can_bus_protocol', 'emissions_systems', 'electrical_systems', 'vehicle_brands', 'automotive_tools', 'injection_systems'],
   },
   {
-    name: 'Construction Engineering Expert',
+    name: 'Construction Engineering Expert (Externo)',
     file: 'agent-construction.js',
     description: 'Experto en construcción, ingeniería estructural, códigos de edificación, seguridad laboral y sistemas HVAC.',
     capabilities: ['structural_calculation', 'building_codes', 'prl_safety', 'hvac_systems', 'renewable_energy', 'bim_modeling', 'concrete_specs', 'steel_structures', 'fire_protection', 'geotechnical'],
   },
   {
-    name: 'Finance Expert',
+    name: 'Finance Expert (Externo)',
     file: 'agent-finance.js',
     description: 'Experto en finanzas, contabilidad, impuestos, auditoría y normativa internacional.',
     capabilities: ['tax_accounting', 'ifrs_standards', 'dcf_valuation', 'audit_procedures', 'treasury_management', 'international_tax', 'financial_modeling', 'payment_management'],
   },
   {
-    name: 'Legal Expert',
+    name: 'Legal Expert (Externo)',
     file: 'agent-legal.js',
     description: 'Experto en derecho, contratos, laboral, RGPD, propiedad intelectual y compliance.',
     capabilities: ['contract_law', 'labor_law', 'data_protection', 'intellectual_property', 'corporate_governance', 'ma_compliance', 'consumer_protection', 'digital_law'],
   },
   {
-    name: 'Project Coordinator',
+    name: 'Project Coordinator (Externo)',
     file: 'agent-project-coordinator.js',
     description: 'Experto en gestión de proyectos, PMI, metodologías ágiles, contratación pública y sostenibilidad.',
     capabilities: ['project_management', 'agile_methodologies', 'public_procurement', 'bim_management', 'esg_sustainability', 'change_management', 'quality_management', 'stakeholder_management'],

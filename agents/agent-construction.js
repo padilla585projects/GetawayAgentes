@@ -14,7 +14,11 @@ const { URL } = require('url')
 const WebSocket = require('ws')
 
 const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:8787'
-const AGENT_NAME = 'Construction Engineering Expert'
+// El nombre distingue este agente (proceso Node externo) del builtin homónimo
+// que vive dentro del propio Worker (gateway/src/agents/builtin.ts). Antes
+// compartían nombre literal y el registro por nombre podía hacer que este
+// proceso heredase el id/token del agente builtin al conectarse.
+const AGENT_NAME = 'Construction Engineering Expert (Externo)'
 const CAPABILITIES = [
   'electrical_installations',
   'structural_calculation',
@@ -540,7 +544,7 @@ class ConstructionAgent {
       endpoint: 'ws://localhost',
       connection_type: 'websocket',
       owner: 'getaway-agentes',
-      is_external: false,
+      is_external: true,
       max_concurrent_tasks: 5,
     })
     if (status !== 200) throw new Error(`Registro falló: ${data?.error}`)

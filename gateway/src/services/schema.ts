@@ -29,6 +29,13 @@ CREATE TABLE IF NOT EXISTS agents (
   updated_at TEXT DEFAULT (datetime('now'))
 );
 
+-- La tabla 'agents' declara 'name UNIQUE' arriba, pero eso solo se aplica en
+-- una BD nueva: CREATE TABLE IF NOT EXISTS es un no-op sobre una tabla que ya
+-- existe, así que en local y en producción esa restricción nunca se llegó a
+-- aplicar de verdad (la tabla se creó antes de que 'UNIQUE' estuviera en el
+-- schema). Este índice se aplica sí o sí, sea cual sea el historial de la BD.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_agents_name ON agents(name);
+
 CREATE TABLE IF NOT EXISTS tasks (
   id TEXT PRIMARY KEY,
   title TEXT NOT NULL,
