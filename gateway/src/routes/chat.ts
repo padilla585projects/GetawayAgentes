@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { Env } from '../models/types'
 import { nanoid } from '../services/utils'
 import { BUILTIN_AGENTS, findBuiltinAgent, fallbackResponse, type BuiltinAgent } from '../agents/builtin'
+import { generateWithFallback } from '../services/llm'
 
 const chat = new Hono<{ Bindings: Env }>()
 
@@ -33,6 +34,44 @@ async function respondAsBuiltin(
       id,
       sender_id: agent.id,
       sender_name: agent.name,
+      sender_role: 'agent',
+      content: reply,
+      channel,
+      target_agent_id: null,
+      message_type: 'text',
+      created_at: new Date().toISOString(),
+    }),
+  })
+  return true
+}
+
+// Igual que respondAsBuiltin, pero para un agente de departamento creado
+// dinámicamente por el Director: no existe como función TS con su propio
+// `.respond()`, solo como fila en `agents` con un `system_prompt` — se llama
+// a generateWithFallback directamente con ese prompt.
+async function respondAsDynamic(
+  env: Env,
+  agentRow: { id: string; name: string; system_prompt: string | null },
+  userMessage: string,
+  channel: string,
+): Promise<boolean> {
+  const reply = await generateWithFallback(env, agentRow.system_prompt || `Eres ${agentRow.name}.`, userMessage)
+    ?? `Soy ${agentRow.name}. Todavía no tengo una respuesta configurada para eso.`
+
+  const id = nanoid()
+  await env.DB.prepare(`
+    INSERT INTO chat_messages (id, sender_id, sender_name, sender_role, content, channel, target_agent_id, message_type, metadata)
+    VALUES (?, ?, ?, 'agent', ?, ?, NULL, 'text', '{}')
+  `).bind(id, agentRow.id, agentRow.name, reply, channel).run()
+
+  const hub = env.GATEWAY_HUB.get(env.GATEWAY_HUB.idFromName('main'))
+  await hub.fetch('http://internal/notify-admin', {
+    method: 'POST',
+    body: JSON.stringify({
+      type: 'chat_message',
+      id,
+      sender_id: agentRow.id,
+      sender_name: agentRow.name,
       sender_role: 'agent',
       content: reply,
       channel,
@@ -177,14 +216,26 @@ chat.post('/', async (c) => {
       }),
     })
 
-    // Respuesta server-side de los agentes built-in (siempre disponibles).
-    // Solo cuando el emisor es un humano (admin), no otro agente.
+    // Respuesta server-side de los agentes built-in y de los agentes de
+    // departamento creados por el Director (siempre disponibles). Solo
+    // cuando el emisor es un humano (admin), no otro agente.
     if (senderRole !== 'agent') {
-      const directTarget = targetAgentId || (findBuiltinAgent(channel) ? channel : null)
+      // El panel dirige un mensaje a un agente concreto poniendo channel =
+      // id del agente (no manda target_agent_id) — así que cualquier canal
+      // que no sea 'general' es un destino directo candidato, sea builtin o
+      // un agente dinámico creado por el Director.
+      const directTarget = targetAgentId || (channel !== 'general' ? channel : null)
       if (directTarget) {
         const agent = findBuiltinAgent(directTarget)
         if (agent) {
           try { await respondAsBuiltin(c.env, agent, content, channel, true) } catch (e: any) { console.error('[chat] direct agent error:', e) }
+        } else {
+          const dynamicAgent = await c.env.DB.prepare(
+            `SELECT id, name, system_prompt FROM agents WHERE id = ? AND connection_type = 'dynamic' AND status = 'idle'`
+          ).bind(directTarget).first() as { id: string; name: string; system_prompt: string | null } | null
+          if (dynamicAgent) {
+            try { await respondAsDynamic(c.env, dynamicAgent, content, channel) } catch (e: any) { console.error('[chat] dynamic agent error:', e) }
+          }
         }
       } else if (channel === 'general') {
         let answered = 0

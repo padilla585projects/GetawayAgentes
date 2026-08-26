@@ -110,7 +110,7 @@ agents.post('/:id/reject', async (c) => {
 // GET /agents — list all agents
 agents.get('/', async (c) => {
   const { results } = await c.env.DB.prepare(`
-    SELECT id, name, description, capabilities, status, trust_level, last_seen, is_external, version, endpoint, max_concurrent_tasks
+    SELECT id, name, description, capabilities, status, trust_level, last_seen, is_external, version, endpoint, max_concurrent_tasks, connection_type
     FROM agents ORDER BY created_at DESC
   `).all()
 
@@ -129,8 +129,10 @@ agents.get('/', async (c) => {
     ...a,
     capabilities: JSON.parse(a.capabilities as string || '[]'),
     is_external: Boolean(a.is_external),
-    // Los agentes built-in viven en el worker: siempre online.
-    is_online: BUILTIN_AGENT_IDS.has(a.id as string) || onlineIds.has(a.id as string),
+    // Los agentes dinámicos (creados por el Director) viven dentro del propio
+    // Worker igual que los builtin — no son un proceso WebSocket que pueda
+    // estar "desconectado", así que están online siempre que existan.
+    is_online: BUILTIN_AGENT_IDS.has(a.id as string) || a.connection_type === 'dynamic' || onlineIds.has(a.id as string),
     is_builtin: BUILTIN_AGENT_IDS.has(a.id as string),
   })))
 })

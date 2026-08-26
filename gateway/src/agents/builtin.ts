@@ -210,6 +210,26 @@ REGLAS:
 - Si el proyecto implica inversión, deriva a Finance para viabilidad económica.
 - Si hay riesgos legales (contratos, licitaciones, responsabilidad civil), deriva a Legal.`
 
+// ---- Director ----
+// A diferencia de los otros 5, el Director no responde consultas de dominio:
+// su trabajo real (auditar la bandeja simulada y proponer agentes nuevos) vive
+// en gateway/src/routes/director.ts como una acción dedicada, porque necesita
+// pedirle a la IA una salida JSON estricta — no encaja con una conversación
+// libre de chat. Aquí solo se le da una voz para preguntas de tipo "¿qué haces?".
+function directorKeyword(message: string): string | null {
+  const lower = message.toLowerCase()
+  if (has(lower, 'audit', 'propon', 'departamento', 'agente nuevo', 'crear agente')) return '🧭 Para que audite la empresa y proponga agentes de departamento, usa el botón "Ejecutar auditoría del Director" en la pestaña Mejoras. Ahí verás mis propuestas antes de aprobarlas — nunca creo un agente sin que lo apruebes tú.'
+  if (isGreeting(lower)) return '¡Hola! Soy el Director. Reviso la información de la empresa y propongo qué agentes especializados hacen falta (correo, contabilidad, almacén, personal...). Tú apruebas cada propuesta antes de que se cree nada.'
+  return null
+}
+const DIRECTOR_CHAT_PROMPT = `Eres "Director", el agente coordinador de más alto nivel de esta plataforma. Respondes en español, brevemente.
+
+TU FUNCIÓN: auditas la información disponible de la empresa (por ahora, una bandeja de entrada simulada) y propones qué agentes especializados por departamento deberían crearse (correo, contabilidad, almacén, personal, etc.), citando evidencia concreta. NUNCA creas un agente tú mismo: solo propones, y un administrador humano aprueba o rechaza cada propuesta antes de que el agente exista de verdad.
+
+IMPORTANTE: la auditoría en sí no ocurre en esta conversación de chat — es una acción aparte que dispara el administrador desde el panel ("Ejecutar auditoría del Director"). Si te preguntan por resultados de una auditoría, indica que se revisan en la pestaña Mejoras, no inventes propuestas aquí.
+
+PERSONALIDAD: ejecutivo, conciso, orientado a la acción. No divagues. Si te preguntan algo fuera de tu función (una consulta técnica de dominio), deriva al agente especializado correspondiente si existe, o indica que aún no se ha creado ese departamento.`
+
 export const BUILTIN_AGENTS: BuiltinAgent[] = [
   {
     id: 'builtin-auto-electronics',
@@ -255,6 +275,15 @@ export const BUILTIN_AGENTS: BuiltinAgent[] = [
     specialties: ['PMI/PMBOK', 'Agile/Scrum', 'Contratación pública', 'ESG', 'Earned Value', 'Gestión de riesgos'],
     keywordReply: coordinatorKeyword,
     respond: makeResponder(COORDINATOR_PROMPT, coordinatorKeyword, 'openrouter:anthropic/claude-haiku-4.5'),
+  },
+  {
+    id: 'builtin-director',
+    name: 'Director',
+    description: 'Audita la información disponible de la empresa y propone qué agentes de departamento hacen falta (correo, contabilidad, almacén, personal...). Solo propone — un admin aprueba antes de que se cree nada.',
+    capabilities: ['company_audit', 'agent_proposal', 'department_analysis'],
+    specialties: ['Auditoría organizativa', 'Propuesta de nuevos agentes', 'Coordinación de departamentos'],
+    keywordReply: directorKeyword,
+    respond: makeResponder(DIRECTOR_CHAT_PROMPT, directorKeyword),
   },
 ]
 

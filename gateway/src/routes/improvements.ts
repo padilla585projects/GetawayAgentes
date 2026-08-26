@@ -35,6 +35,7 @@ improvements.get('/', async (c) => {
   return c.json(results.map(r => ({
     ...r,
     related_capabilities: JSON.parse(r.related_capabilities as string || '[]'),
+    proposed_agent_spec: r.proposed_agent_spec ? JSON.parse(r.proposed_agent_spec as string) : null,
   })))
 })
 
@@ -60,8 +61,8 @@ improvements.post('/', async (c) => {
   const id = nanoid()
 
   await c.env.DB.prepare(`
-    INSERT INTO improvement_proposals (id, agent_id, agent_name, proposal_type, title, description, priority, related_capabilities, evidence)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO improvement_proposals (id, agent_id, agent_name, proposal_type, title, description, priority, related_capabilities, evidence, proposed_agent_spec)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     id,
     body.agent_id,
@@ -72,6 +73,7 @@ improvements.post('/', async (c) => {
     body.priority || 'medium',
     JSON.stringify(body.related_capabilities || []),
     body.evidence || '',
+    body.proposed_agent_spec ? JSON.stringify(body.proposed_agent_spec) : null,
   ).run()
 
   // Notify admins
@@ -92,19 +94,60 @@ improvements.post('/', async (c) => {
   return c.json({ message: 'Propuesta enviada', id })
 })
 
-// PATCH /improvements/:id/review — admin reviews a proposal
+// PATCH /improvements/:id/review — admin reviews a proposal.
+// Cuando se aprueba una propuesta de tipo 'new_agent' con una spec adjunta,
+// esto además crea el agente de verdad — mismo patrón que POST /agents/:id/approve
+// (activa algo real al aprobar), pero sin firmar token: un agente de
+// departamento vive dentro del Worker, no es un proceso WebSocket externo.
 improvements.patch('/:id/review', async (c) => {
   const id = c.req.param('id')
   const body = await c.req.json()
   const { status, reviewed_by, implementation_notes } = body
 
+  const proposal = await c.env.DB.prepare('SELECT * FROM improvement_proposals WHERE id = ?').bind(id).first() as Record<string, unknown> | null
+
+  let notes = implementation_notes || ''
+  let createdAgentId: string | null = null
+  let createdAgentName: string | null = null
+
+  if (status === 'approved' && proposal?.proposal_type === 'new_agent' && proposal.proposed_agent_spec) {
+    const spec = JSON.parse(proposal.proposed_agent_spec as string)
+    const existing = await c.env.DB.prepare('SELECT id FROM agents WHERE name = ?').bind(spec.name).first()
+
+    if (existing) {
+      notes = `${notes} [No se creó el agente: ya existe uno con el nombre "${spec.name}"]`.trim()
+    } else {
+      createdAgentId = nanoid()
+      createdAgentName = spec.name
+      await c.env.DB.prepare(`
+        INSERT INTO agents (id, name, description, version, capabilities, endpoint, connection_type, owner, is_external, status, trust_level, metadata, system_prompt, max_concurrent_tasks, updated_at)
+        VALUES (?, ?, ?, '1.0.0', ?, '', 'dynamic', 'builtin-director', 0, 'idle', 'trusted', ?, ?, 5, datetime('now'))
+      `).bind(
+        createdAgentId,
+        spec.name,
+        spec.description || '',
+        JSON.stringify(spec.capabilities || []),
+        JSON.stringify({ specialties: spec.specialties || [], created_by_proposal: id }),
+        spec.system_prompt || '',
+      ).run()
+    }
+  }
+
   await c.env.DB.prepare(`
     UPDATE improvement_proposals
     SET status = ?, reviewed_at = datetime('now'), reviewed_by = ?, implementation_notes = ?
     WHERE id = ?
-  `).bind(status, reviewed_by || 'admin', implementation_notes || '', id).run()
+  `).bind(status, reviewed_by || 'admin', notes, id).run()
 
-  return c.json({ message: 'Propuesta actualizada' })
+  if (createdAgentId) {
+    const hub = c.env.GATEWAY_HUB.get(c.env.GATEWAY_HUB.idFromName('main'))
+    await hub.fetch('http://internal/notify-admin', {
+      method: 'POST',
+      body: JSON.stringify({ type: 'agent_created', agent_id: createdAgentId, agent_name: createdAgentName }),
+    })
+  }
+
+  return c.json({ message: 'Propuesta actualizada', agent_created: Boolean(createdAgentId), agent_id: createdAgentId })
 })
 
 // DELETE /improvements/:id — delete a proposal

@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState, type ReactNode } from 'react'
-import { Lightbulb, CheckCircle, XCircle, Clock, Filter, RefreshCw, Sparkles, Target, Zap, Bot, Wrench, Book, Link, X } from 'lucide-react'
+import { Lightbulb, CheckCircle, XCircle, Clock, Filter, RefreshCw, Sparkles, Target, Zap, Bot, Wrench, Book, Link, X, Compass } from 'lucide-react'
 import { api } from '@/lib/api'
 import { ImprovementProposal, ImprovementStats, LearningTask } from '@/lib/types'
 import clsx from 'clsx'
@@ -44,6 +44,8 @@ export default function ImprovementsPage() {
   const [filterStatus, setFilterStatus] = useState<string>('')
   const [filterType, setFilterType] = useState<string>('')
   const [selectedProposal, setSelectedProposal] = useState<ImprovementProposal | null>(null)
+  const [auditing, setAuditing] = useState(false)
+  const [auditMessage, setAuditMessage] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -94,6 +96,20 @@ export default function ImprovementsPage() {
     }
   }
 
+  async function runAudit() {
+    setAuditing(true)
+    setAuditMessage(null)
+    try {
+      const result = await api.runDirectorAudit()
+      setAuditMessage(`Auditoría completada: ${result.proposals_created} propuesta(s) nueva(s).`)
+      await refreshData()
+    } catch (e: any) {
+      setAuditMessage(`Error al auditar: ${e?.message || 'desconocido'}`)
+    } finally {
+      setAuditing(false)
+    }
+  }
+
   async function deleteProposal(id: string) {
     if (!confirm('¿Eliminar esta propuesta?')) return
     try {
@@ -125,10 +141,26 @@ export default function ImprovementsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-white flex items-center gap-2"><Lightbulb size={24} className="text-yellow-400" /> Mejoras del Sistema</h2>
-        <button onClick={refreshData} className="text-gray-400 hover:text-white text-sm px-3 py-1 rounded-lg hover:bg-gray-800 inline-flex items-center gap-1">
-          <RefreshCw size={14} /> Actualizar
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={runAudit}
+            disabled={auditing}
+            className="bg-indigo-700 hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5"
+          >
+            <Compass size={14} className={auditing ? 'animate-spin' : ''} /> {auditing ? 'Auditando...' : 'Ejecutar auditoría del Director'}
+          </button>
+          <button onClick={refreshData} className="text-gray-400 hover:text-white text-sm px-3 py-1 rounded-lg hover:bg-gray-800 inline-flex items-center gap-1">
+            <RefreshCw size={14} /> Actualizar
+          </button>
+        </div>
       </div>
+
+      {auditMessage && (
+        <div className="bg-indigo-950/50 border border-indigo-800 text-indigo-200 text-sm rounded-lg px-4 py-2 flex items-center justify-between">
+          <span>{auditMessage}</span>
+          <button onClick={() => setAuditMessage(null)} className="text-indigo-400 hover:text-white"><X size={14} /></button>
+        </div>
+      )}
 
       {/* Stats */}
       {stats && (
@@ -275,7 +307,37 @@ export default function ImprovementsPage() {
             {selectedProposal.evidence && (
               <div>
                 <p className="text-gray-400 text-sm mb-2">Evidencia</p>
-                <p className="text-gray-300 text-sm bg-gray-800 rounded-lg p-3">{selectedProposal.evidence}</p>
+                <p className="text-gray-300 text-sm bg-gray-800 rounded-lg p-3 whitespace-pre-wrap">{selectedProposal.evidence}</p>
+              </div>
+            )}
+
+            {selectedProposal.proposal_type === 'new_agent' && selectedProposal.proposed_agent_spec && (
+              <div className="border border-indigo-900 bg-indigo-950/30 rounded-lg p-3 space-y-3">
+                <p className="text-indigo-300 text-sm font-medium flex items-center gap-1.5"><Bot size={14} /> Agente propuesto: {selectedProposal.proposed_agent_spec.name}</p>
+                {selectedProposal.proposed_agent_spec.specialties?.length > 0 && (
+                  <div>
+                    <p className="text-gray-400 text-xs mb-1">Especialidades</p>
+                    <div className="flex flex-wrap gap-1">
+                      {selectedProposal.proposed_agent_spec.specialties.map(s => (
+                        <span key={s} className="text-xs bg-indigo-900 text-indigo-200 px-2 py-0.5 rounded">{s}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {selectedProposal.proposed_agent_spec.capabilities?.length > 0 && (
+                  <div>
+                    <p className="text-gray-400 text-xs mb-1">Capacidades</p>
+                    <div className="flex flex-wrap gap-1">
+                      {selectedProposal.proposed_agent_spec.capabilities.map(cap => (
+                        <span key={cap} className="text-xs bg-blue-900 text-blue-200 px-2 py-0.5 rounded">{cap}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div>
+                  <p className="text-gray-400 text-xs mb-1">System prompt propuesto</p>
+                  <pre className="text-xs text-gray-300 bg-gray-950 rounded-lg p-3 max-h-40 overflow-y-auto whitespace-pre-wrap font-mono">{selectedProposal.proposed_agent_spec.system_prompt}</pre>
+                </div>
               </div>
             )}
 

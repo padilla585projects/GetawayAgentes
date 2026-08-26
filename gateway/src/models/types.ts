@@ -21,6 +21,10 @@ export interface Agent {
   last_seen?: string
   created_at: string
   max_concurrent_tasks: number
+  // Prompt de sistema de un agente creado dinámicamente (connection_type='dynamic').
+  // Los builtin guardan el suyo en código (gateway/src/agents/builtin.ts); esta
+  // columna solo aplica a los agentes de departamento que crea el Director.
+  system_prompt?: string | null
 }
 
 export interface Task {
@@ -137,6 +141,8 @@ export type WsMessageType =
   | 'chat_message'
   | 'learning_task'
   | 'improvement_proposal'
+  | 'director_proposal'
+  | 'agent_created'
   | 'shutdown'
   | 'maintenance'
 

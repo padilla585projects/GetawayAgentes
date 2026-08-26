@@ -126,7 +126,30 @@ CREATE TABLE IF NOT EXISTS learning_tasks (
 
 CREATE INDEX IF NOT EXISTS idx_learning_status ON learning_tasks(status);
 CREATE INDEX IF NOT EXISTS idx_learning_agent ON learning_tasks(agent_id);
+
+CREATE TABLE IF NOT EXISTS simulated_inbox (
+  id TEXT PRIMARY KEY,
+  from_name TEXT NOT NULL,
+  from_email TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  body TEXT NOT NULL,
+  category TEXT NOT NULL,
+  received_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_inbox_category ON simulated_inbox(category);
+CREATE INDEX IF NOT EXISTS idx_inbox_received ON simulated_inbox(received_at);
 `
+
+// Columnas añadidas a tablas que ya existían antes de que estas columnas se
+// declarasen arriba. CREATE TABLE IF NOT EXISTS no las aplica sobre una tabla
+// que ya existe (mismo problema que tuvimos con 'name UNIQUE' en agents), y
+// SQLite no soporta 'ADD COLUMN IF NOT EXISTS' — así que probamos y tragamos
+// solo el error de "columna duplicada".
+const ALTER_STATEMENTS = [
+  `ALTER TABLE agents ADD COLUMN system_prompt TEXT DEFAULT NULL`,
+  `ALTER TABLE improvement_proposals ADD COLUMN proposed_agent_spec TEXT DEFAULT NULL`,
+]
 
 let schemaReady: Promise<void> | null = null
 
@@ -136,6 +159,13 @@ export function ensureSchema(db: { prepare(sql: string): { run(): Promise<unknow
       const statements = SCHEMA_STATEMENTS.split(';').map(s => s.trim()).filter(Boolean)
       for (const sql of statements) {
         await db.prepare(sql).run()
+      }
+      for (const sql of ALTER_STATEMENTS) {
+        try {
+          await db.prepare(sql).run()
+        } catch (e) {
+          if (!String((e as Error)?.message || e).toLowerCase().includes('duplicate column name')) throw e
+        }
       }
     })().catch((e) => {
       schemaReady = null

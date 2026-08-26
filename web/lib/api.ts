@@ -1,4 +1,4 @@
-import { Agent, Task, KnowledgeEntry, ChatMessage, Channel, ImprovementProposal, ImprovementStats, LearningTask } from './types'
+import { Agent, Task, KnowledgeEntry, ChatMessage, Channel, ImprovementProposal, ImprovementStats, LearningTask, SimulatedInboxEntry } from './types'
 
 const BASE = process.env.NEXT_PUBLIC_GATEWAY_URL || 'http://localhost:8787'
 
@@ -90,4 +90,12 @@ export const api = {
   getMaintenanceStatus: () => req<{ maintenance: boolean }>('/admin/status'),
   setMaintenance: (enabled: boolean) =>
     req<{ maintenance: boolean }>('/admin/maintenance', { method: 'POST', body: JSON.stringify({ enabled }) }),
+
+  // Director — audita la bandeja simulada y propone agentes de departamento
+  runDirectorAudit: () =>
+    req<{ message: string; proposals_created: number; proposal_ids: string[] }>('/director/audit', { method: 'POST' }),
+
+  // Bandeja simulada (empresa de prueba para el Director)
+  getInbox: () => req<SimulatedInboxEntry[]>('/inbox'),
+  seedInbox: () => req<{ message: string; count: number }>('/inbox/seed', { method: 'POST' }),
 }

@@ -77,6 +77,19 @@ export interface TaskMessage {
   created_at: string
 }
 
+// Spec completa que propone el Director para un futuro agente de departamento.
+// Se guarda tal cual en ImprovementProposal.proposed_agent_spec y, si se
+// aprueba la propuesta, es lo que se usa para crear la fila real en `agents`.
+export interface DirectorAgentSpec {
+  name: string
+  description: string
+  capabilities: string[]
+  specialties: string[]
+  system_prompt: string
+  priority: 'low' | 'medium' | 'high'
+  evidence: string
+}
+
 export interface ImprovementProposal {
   id: string
   agent_id: string
@@ -88,10 +101,22 @@ export interface ImprovementProposal {
   status: 'pending' | 'reviewing' | 'approved' | 'rejected' | 'implemented'
   related_capabilities: string[]
   evidence: string
+  proposed_agent_spec: DirectorAgentSpec | null
   created_at: string
   reviewed_at?: string
   reviewed_by?: string
   implementation_notes?: string
+}
+
+// Correo de la bandeja simulada que el Director audita (empresa de prueba).
+export interface SimulatedInboxEntry {
+  id: string
+  from_name: string
+  from_email: string
+  subject: string
+  body: string
+  category: string
+  received_at: string
 }
 
 export interface ImprovementStats {

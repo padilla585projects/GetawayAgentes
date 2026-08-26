@@ -7,6 +7,8 @@ import knowledge from './routes/knowledge'
 import chat from './routes/chat'
 import improvements from './routes/improvements'
 import admin from './routes/admin'
+import director from './routes/director'
+import inbox from './routes/inbox'
 import { verifyToken } from './services/auth'
 import { handleMcpRequest } from './mcp/server'
 import { ensureSchema } from './services/schema'
@@ -100,6 +102,8 @@ app.route('/knowledge', knowledge)
 app.route('/chat', chat)
 app.route('/improvements', improvements)
 app.route('/admin', admin)
+app.route('/director', director)
+app.route('/inbox', inbox)
 
 // Admin login
 app.post('/auth/login', async (c) => {

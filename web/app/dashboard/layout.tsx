@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 import { useAgents } from '@/lib/use-agents'
 import { useMaintenance } from '@/lib/use-maintenance'
 import clsx from 'clsx'
-import { Home, Bot, ClipboardList, BookOpen, MessageSquare, Lightbulb, LogOut, PanelLeft, Gauge, Power } from 'lucide-react'
+import { Home, Bot, ClipboardList, BookOpen, MessageSquare, Lightbulb, LogOut, PanelLeft, Gauge, Power, Inbox } from 'lucide-react'
 
 const nav = [
   { href: '/dashboard', label: 'Inicio', icon: Gauge },
@@ -13,6 +13,7 @@ const nav = [
   { href: '/dashboard/tasks', label: 'Tareas', icon: ClipboardList },
   { href: '/dashboard/knowledge', label: 'Conocimiento', icon: BookOpen },
   { href: '/dashboard/chat', label: 'Chat', icon: MessageSquare },
+  { href: '/dashboard/inbox', label: 'Bandeja (simulada)', icon: Inbox },
   { href: '/dashboard/improvements', label: 'Mejoras', icon: Lightbulb },
 ]
 
