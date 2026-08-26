@@ -1,6 +1,9 @@
 import { Env } from '../models/types'
 
-const TIMEOUT_MS = 15000
+// 15s bastaba para respuestas cortas, pero con MAX_TOKENS más alto un modelo
+// con razonamiento interno (gemini-3.6-flash) puede tardar más en terminar —
+// visto en vivo: abortábamos la petición antes de que llegara la respuesta.
+const TIMEOUT_MS = 45000
 // 1024 se quedaba corto para el Director: le pedimos un array JSON con varios
 // agentes completos (cada uno con su propio system prompt), y los modelos con
 // razonamiento interno (p.ej. gemini-3.6-flash) además gastan parte de este
