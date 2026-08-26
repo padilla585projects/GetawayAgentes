@@ -1,7 +1,12 @@
 import { Env } from '../models/types'
 
 const TIMEOUT_MS = 15000
-const MAX_TOKENS = 1024
+// 1024 se quedaba corto para el Director: le pedimos un array JSON con varios
+// agentes completos (cada uno con su propio system prompt), y los modelos con
+// razonamiento interno (p.ej. gemini-3.6-flash) además gastan parte de este
+// presupuesto en "pensar" antes de emitir la respuesta visible — con 1024 la
+// salida se cortaba a mitad de frase y el JSON quedaba inválido.
+const MAX_TOKENS = 4096
 // 'gemini-2.0-flash' fue retirado por Google (404 "no longer available");
 // el propio error de la API indica el reemplazo actual.
 const GEMINI_DEFAULT_MODEL = 'gemini-3.6-flash'
