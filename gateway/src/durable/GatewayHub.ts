@@ -54,7 +54,15 @@ export class GatewayHub {
 
     // ─── Internal HTTP routes (called by gateway routes via hub.fetch()) ───
     if (request.headers.get('Upgrade') !== 'websocket') {
-      const path = url.pathname
+      // Los callers construyen URLs como 'http://internal/online-agents': ahí
+      // "internal" es el HOST, no el primer segmento del path, así que
+      // url.pathname es en realidad '/online-agents' — nunca '/internal/...'.
+      // Como resultado ninguna ruta de abajo hacía match nunca y todo esto caía
+      // en el 404 final sin que ningún caller lo notara (los `hub.fetch(...)`
+      // no comprueban el status). Normalizamos aquí en vez de tocar los 23
+      // call sites — así las rutas de abajo pueden seguir escritas con el
+      // prefijo '/internal/' tal como se leen mejor.
+      const path = url.pathname.startsWith('/internal/') ? url.pathname : `/internal${url.pathname}`
 
       // POST /internal/notify-admin — broadcast event to all admins
       if (path === '/internal/notify-admin' && request.method === 'POST') {
