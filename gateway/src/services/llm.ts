@@ -130,7 +130,8 @@ export function buildProviders(env: Env, system: string, user: string, modelOver
   const providers: Provider[] = []
 
   if (!modelOverride) {
-    // Sin override: intenta OpenRouter → Groq → Gemini
+    // Sin override: intenta Grok (xAI) → OpenRouter → Groq → Gemini
+    addXai(providers, env, system, user, 'grok-4.6')
     addOpenRouter(providers, env, system, user, 'nvidia/nemotron-3-ultra-550b-a55b:free')
     addGroq(providers, env, system, user, 'llama-3.3-70b-versatile')
     addGemini(providers, env, system, user, 'gemini-2.0-flash')
@@ -158,6 +159,9 @@ export function buildProviders(env: Env, system: string, user: string, modelOver
   }
 
   switch (provider) {
+    case 'xai':
+      addXai(providers, env, system, user, model)
+      break
     case 'gemini':
       addGemini(providers, env, system, user, model)
       break
@@ -187,6 +191,16 @@ export function buildProviders(env: Env, system: string, user: string, modelOver
   }
 
   return providers
+}
+
+// xAI (Grok) — API compatible con el formato OpenAI, mismo helper que
+// OpenAI/Groq/DeepSeek. Base URL propia: https://api.x.ai/v1.
+function addXai(providers: Provider[], env: Env, system: string, user: string, model: string) {
+  if (!env.XAI_KEY) return
+  providers.push({
+    name: 'xai',
+    call: (s) => completeOpenAi('https://api.x.ai/v1', env.XAI_KEY!, model, system, user, s),
+  })
 }
 
 function addOpenRouter(providers: Provider[], env: Env, system: string, user: string, model: string) {

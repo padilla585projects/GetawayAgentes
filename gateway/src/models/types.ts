@@ -88,6 +88,7 @@ export interface Env {
   SECRET_KEY: string
   ENVIRONMENT: string
   // Claves de proveedores de LLM. Se configuran como secrets.
+  XAI_KEY?: string
   OPENROUTER_KEY?: string
   GROQ_KEY?: string
   GEMINI_KEY?: string
