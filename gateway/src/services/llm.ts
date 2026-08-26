@@ -2,6 +2,9 @@ import { Env } from '../models/types'
 
 const TIMEOUT_MS = 15000
 const MAX_TOKENS = 1024
+// 'gemini-2.0-flash' fue retirado por Google (404 "no longer available");
+// el propio error de la API indica el reemplazo actual.
+const GEMINI_DEFAULT_MODEL = 'gemini-3.6-flash'
 
 async function postJson(
   url: string,
@@ -134,7 +137,7 @@ export function buildProviders(env: Env, system: string, user: string, modelOver
     addXai(providers, env, system, user, 'grok-4.6')
     addOpenRouter(providers, env, system, user, 'nvidia/nemotron-3-ultra-550b-a55b:free')
     addGroq(providers, env, system, user, 'llama-3.3-70b-versatile')
-    addGemini(providers, env, system, user, 'gemini-2.0-flash')
+    addGemini(providers, env, system, user, GEMINI_DEFAULT_MODEL)
     return providers
   }
 
@@ -182,12 +185,12 @@ export function buildProviders(env: Env, system: string, user: string, modelOver
       break
     default:
       // Prefijo desconocido → Gemini como fallback
-      addGemini(providers, env, system, user, 'gemini-2.0-flash')
+      addGemini(providers, env, system, user, GEMINI_DEFAULT_MODEL)
   }
 
   // Si el provider principal no es Gemini, agrega Gemini como fallback
   if (provider !== 'gemini') {
-    addGemini(providers, env, system, user, 'gemini-2.0-flash')
+    addGemini(providers, env, system, user, GEMINI_DEFAULT_MODEL)
   }
 
   return providers
