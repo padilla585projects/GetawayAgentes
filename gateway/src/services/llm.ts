@@ -1,10 +1,12 @@
 import { Env } from '../models/types'
 
-// 15s bastaba para respuestas cortas, pero con MAX_TOKENS más alto un modelo
-// con razonamiento interno (gemini-3.6-flash, grok-4.6) puede tardar más en
-// terminar — visto en vivo dos veces: 45s tampoco fue suficiente para Grok
-// ("The operation was aborted"), así que subimos otra vez.
-const TIMEOUT_MS = 60000
+// Aislado en vivo: un mensaje de chat corto a Grok responde en ~8s (rápido de
+// verdad), pero la auditoría del Director — prompt largo + hasta 4096 tokens
+// de salida con varias specs completas — no es lo mismo, y 45s/60s no le
+// bastaron ("The operation was aborted") aunque el proveedor funcionaba bien.
+// No hay coste en subir esto: es un techo, no una espera fija — una respuesta
+// rápida vuelve igual de rápido, solo importa cuando algo tarda de verdad.
+const TIMEOUT_MS = 120000
 // 1024 se quedaba corto para el Director: le pedimos un array JSON con varios
 // agentes completos (cada uno con su propio system prompt), y los modelos con
 // razonamiento interno (p.ej. gemini-3.6-flash) además gastan parte de este
